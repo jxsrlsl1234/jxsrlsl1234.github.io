@@ -1,32 +1,31 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>My New Hugo Site</title>
+    <title>院长已上线</title>
     <link>https://jxsrlsl1234.github.io/</link>
-    <description>Recent content on My New Hugo Site</description>
+    <description>Recent content on 院长已上线</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
+    <managingEditor>jxsrlsl1234@163.com (jxsrlsl1234)</managingEditor>
+    <webMaster>jxsrlsl1234@163.com (jxsrlsl1234)</webMaster>
+    <copyright>© 2021 &lt;a href=&#34;https://github.com/miiiku/hugo-theme-kagome&#34;&gt;kagome&lt;/a&gt;.</copyright>
     <lastBuildDate>Mon, 05 Dec 2022 16:25:32 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>自定义Tomcat优雅退出逻辑</title>
-      <link>https://jxsrlsl1234.github.io/springboot/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</link>
+      <link>https://jxsrlsl1234.github.io/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</link>
       <pubDate>Mon, 05 Dec 2022 16:25:32 +0800</pubDate>
-      
-      <guid>https://jxsrlsl1234.github.io/springboot/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</guid>
-      <description>背景 SpringBoot早期版本是不支持优雅退出的，即JVM准备退出时，ShutdownHook钩子函数执行Spring context退出逻辑时，会直接把Tomcat线程池关闭，导致请求无法正常处理。 这在一些通用场景可能会出现客户端无法成功获取服务端返回数据的问题，各种5xx异常出现。
-这个在后续的springboot版本中有所改观，在springboot 2.3 版本之后，支持了优雅停机的操作。
-但是对于较早期版本如果想要优雅停机怎么做？
-自定义Tomcat优雅停机操作 早期的springboot其实也有很多通用接口可以实现优雅停机。最简单的方法就是自定义WebServerFactoryCustomizer，然后在这个customizer中监听ContextClosedEvent事件， 在监听到该事件后，执行Tomcat线程池的优雅shutdown逻辑。以下为一种简单的开发方式。
-import org.apache.catalina.connector.Connector; import org.slf4j.Logger; import org.slf4j.LoggerFactory; import org.springframework.beans.factory.annotation.Configurable; import org.springframework.boot.web.embedded.tomcat.ConfigurableTomcatWebServerFactory; import org.springframework.boot.web.embedded.tomcat.TomcatConnectorCustomizer; import org.springframework.boot.web.server.WebServerFactoryCustomizer; import org.springframework.context.ApplicationListener; import org.springframework.context.annotation.Bean; import org.springframework.context.annotation.Configuration; import org.springframework.context.event.ContextClosedEvent; import java.util.concurrent.Executor; import java.util.concurrent.ThreadPoolExecutor; import java.util.concurrent.TimeUnit; @Configuration public class TomcatShutdownConfig { @Bean public GracefulShutdown gracefulShutdown() { return new GracefulShutdown(); } @Bean public WebServerFactoryCustomizer gracefulShutdownWebServerFactoryCustomizer() { return factory -&amp;gt; { if (factory instanceof ConfigurableTomcatWebServerFactory) { ((ConfigurableTomcatWebServerFactory) factory).addConnectorCustomizers(gracefulShutdown()); } }; } private static class GracefulShutdown implements TomcatConnectorCustomizer, ApplicationListener&amp;lt;ContextClosedEvent&amp;gt; { private static final Logger log = LoggerFactory.</description>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</guid>
+      <description>背景 SpringBoot早期版本是不支持优雅退出的，即JVM准备退出时，ShutdownHook钩子函数执行Spring context退出逻</description>
     </item>
     
     <item>
-      <title>About</title>
-      <link>https://jxsrlsl1234.github.io/about/</link>
-      <pubDate>Mon, 05 Dec 2022 00:48:36 +0800</pubDate>
-      
-      <guid>https://jxsrlsl1234.github.io/about/</guid>
-      <description>Hello, This is a hugo Page! </description>
+      <title>First</title>
+      <link>https://jxsrlsl1234.github.io/posts/202212050049/</link>
+      <pubDate>Mon, 05 Dec 2022 00:49:27 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/posts/202212050049/</guid>
+      <description>Hello Hugo  aaa bbb ccc  </description>
     </item>
     
   </channel>

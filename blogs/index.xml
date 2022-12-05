@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Blogs on 院长已上线</title>
+    <link>https://jxsrlsl1234.github.io/blogs/</link>
+    <description>Recent content in Blogs on 院长已上线</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <managingEditor>jxsrlsl1234@163.com (jxsrlsl1234)</managingEditor>
+    <webMaster>jxsrlsl1234@163.com (jxsrlsl1234)</webMaster>
+    <copyright>© 2021 &lt;a href=&#34;https://github.com/miiiku/hugo-theme-kagome&#34;&gt;kagome&lt;/a&gt;.</copyright>
+    <lastBuildDate>Mon, 05 Dec 2022 16:25:32 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/blogs/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>自定义Tomcat优雅退出逻辑</title>
+      <link>https://jxsrlsl1234.github.io/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</link>
+      <pubDate>Mon, 05 Dec 2022 16:25:32 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</guid>
+      <description>背景 SpringBoot早期版本是不支持优雅退出的，即JVM准备退出时，ShutdownHook钩子函数执行Spring context退出逻</description>
+    </item>
+    
+  </channel>
+</rss>
