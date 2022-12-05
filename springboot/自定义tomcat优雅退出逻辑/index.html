@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <link href="https://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="generator" content="Hugo 0.87.0" />
+
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>自定义Tomcat优雅退出逻辑 &middot; My New Hugo Site</title>
+  <meta name="description" content="" />
+
+  
+  <link type="text/css" rel="stylesheet" href="https://jxsrlsl1234.github.io/css/print.css" media="print">
+  <link type="text/css" rel="stylesheet" href="https://jxsrlsl1234.github.io/css/poole.css">
+  <link type="text/css" rel="stylesheet" href="https://jxsrlsl1234.github.io/css/syntax.css">
+  <link type="text/css" rel="stylesheet" href="https://jxsrlsl1234.github.io/css/hyde.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Abril+Fatface|PT+Sans:400,400i,700">
+
+
+  
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/apple-touch-icon-144-precomposed.png">
+  <link rel="shortcut icon" href="/favicon.png">
+
+  
+  
+</head>
+
+  <body class=" ">
+  <aside class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <a href="https://jxsrlsl1234.github.io/"><h1>My New Hugo Site</h1></a>
+      <p class="lead">
+      An elegant open source and mobile first theme for <a href="http://hugo.spf13.com">hugo</a> made by <a href="http://twitter.com/mdo">@mdo</a>. Originally made for Jekyll.
+      </p>
+    </div>
+
+    <nav>
+      <ul class="sidebar-nav">
+        <li><a href="https://jxsrlsl1234.github.io/">Home</a> </li>
+        
+      </ul>
+    </nav>
+
+    <p>&copy; 2022. All rights reserved. </p>
+  </div>
+</aside>
+
+    <main class="content container">
+    <div class="post">
+  <h1>自定义Tomcat优雅退出逻辑</h1>
+  <time datetime=2022-12-05T16:25:32&#43;0800 class="post-date">Mon, Dec 5, 2022</time>
+  <h3 id="背景">背景</h3>
+<p>SpringBoot早期版本是不支持优雅退出的，即JVM准备退出时，ShutdownHook钩子函数执行Spring context退出逻辑时，会直接把Tomcat线程池关闭，导致请求无法正常处理。
+这在一些通用场景可能会出现客户端无法成功获取服务端返回数据的问题，各种5xx异常出现。</p>
+<p>这个在后续的springboot版本中有所改观，在springboot 2.3 版本之后，支持了优雅停机的操作。</p>
+<p>但是对于较早期版本如果想要优雅停机怎么做？</p>
+<h3 id="自定义tomcat优雅停机操作">自定义Tomcat优雅停机操作</h3>
+<p>早期的springboot其实也有很多通用接口可以实现优雅停机。最简单的方法就是自定义WebServerFactoryCustomizer，然后在这个customizer中监听ContextClosedEvent事件，
+在监听到该事件后，执行Tomcat线程池的优雅shutdown逻辑。以下为一种简单的开发方式。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">import</span> org.apache.catalina.connector.Connector<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.slf4j.Logger<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.slf4j.LoggerFactory<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.beans.factory.annotation.Configurable<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.boot.web.embedded.tomcat.ConfigurableTomcatWebServerFactory<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.boot.web.embedded.tomcat.TomcatConnectorCustomizer<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.boot.web.server.WebServerFactoryCustomizer<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.context.ApplicationListener<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.context.annotation.Bean<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.context.annotation.Configuration<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> org.springframework.context.event.ContextClosedEvent<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> java.util.concurrent.Executor<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.util.concurrent.ThreadPoolExecutor<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.util.concurrent.TimeUnit<span style="color:#f92672">;</span>
+
+<span style="color:#a6e22e">@Configuration</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TomcatShutdownConfig</span> <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Bean</span>
+    <span style="color:#66d9ef">public</span> GracefulShutdown <span style="color:#a6e22e">gracefulShutdown</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> GracefulShutdown<span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Bean</span>
+    <span style="color:#66d9ef">public</span> WebServerFactoryCustomizer <span style="color:#a6e22e">gracefulShutdownWebServerFactoryCustomizer</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> factory <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>factory <span style="color:#66d9ef">instanceof</span> ConfigurableTomcatWebServerFactory<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                <span style="color:#f92672">((</span>ConfigurableTomcatWebServerFactory<span style="color:#f92672">)</span> factory<span style="color:#f92672">).</span><span style="color:#a6e22e">addConnectorCustomizers</span><span style="color:#f92672">(</span>gracefulShutdown<span style="color:#f92672">());</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">};</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GracefulShutdown</span> <span style="color:#66d9ef">implements</span> TomcatConnectorCustomizer<span style="color:#f92672">,</span>
+            ApplicationListener<span style="color:#f92672">&lt;</span>ContextClosedEvent<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+
+        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> Logger log <span style="color:#f92672">=</span> LoggerFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getLogger</span><span style="color:#f92672">(</span>GracefulShutdown<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+
+        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">volatile</span> Connector connector<span style="color:#f92672">;</span>
+
+        <span style="color:#a6e22e">@Override</span>
+        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">customize</span><span style="color:#f92672">(</span>Connector connector<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">connector</span> <span style="color:#f92672">=</span> connector<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+
+        <span style="color:#a6e22e">@Override</span>
+        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onApplicationEvent</span><span style="color:#f92672">(</span>ContextClosedEvent event<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">connector</span><span style="color:#f92672">.</span><span style="color:#a6e22e">pause</span><span style="color:#f92672">();</span>
+            Executor executor <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">connector</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocolHandler</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getExecutor</span><span style="color:#f92672">();</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>executor <span style="color:#66d9ef">instanceof</span> ThreadPoolExecutor<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+                    ThreadPoolExecutor threadPoolExecutor <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>ThreadPoolExecutor<span style="color:#f92672">)</span> executor<span style="color:#f92672">;</span>
+                    threadPoolExecutor<span style="color:#f92672">.</span><span style="color:#a6e22e">shutdown</span><span style="color:#f92672">();</span>
+                    <span style="color:#75715e">// 自定义等待时间
+</span><span style="color:#75715e"></span>                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>threadPoolExecutor<span style="color:#f92672">.</span><span style="color:#a6e22e">awaitTermination</span><span style="color:#f92672">(</span>30<span style="color:#f92672">,</span> TimeUnit<span style="color:#f92672">.</span><span style="color:#a6e22e">SECONDS</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+                        log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Tomcat thread pool did not shut down gracefully within &#34;</span>
+                                <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;30 seconds. Proceeding with forceful shutdown&#34;</span><span style="color:#f92672">);</span>
+                    <span style="color:#f92672">}</span>
+                <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>InterruptedException ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                    Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">currentThread</span><span style="color:#f92672">().</span><span style="color:#a6e22e">interrupt</span><span style="color:#f92672">();</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span>
+
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+
+</code></pre></div>
+</div>
+
+
+    </main>
+
+    
+      
+    
+  </body>
+</html>
