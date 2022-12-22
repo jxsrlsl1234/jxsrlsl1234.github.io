@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html><head>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+   
+    <meta name="author" content="jxsrlsl1234">
+  
+
+   
+    
+    
+    
+    
+    
+    
+    <meta name="keywords" content="theme,kagome">
+  
+
+  
+
+  <meta name="generator" content="Hugo 0.87.0" />
+  
+  
+  
+  
+  
+  
+  <title>SpringMVC项目中WebApplicationContext是如何构建出来的 🌟 非洲大白脸</title>
+
+  <meta property="og:title" content="SpringMVC项目中WebApplicationContext是如何构建出来的" />
+<meta property="og:description" content="一、DispatcherServlet/ContextLoaderListener 问：这两者有啥关联呢？ 结论：这两者都会去构建 WebAppl" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jxsrlsl1234.github.io/blogs/springmvc%E9%A1%B9%E7%9B%AE%E4%B8%ADwebapplicationcontext%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E5%87%BA%E6%9D%A5%E7%9A%84/" /><meta property="article:section" content="blogs" />
+<meta property="article:published_time" content="2022-12-22T15:50:53+08:00" />
+<meta property="article:modified_time" content="2022-12-22T15:50:53+08:00" />
+
+
+  <meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="SpringMVC项目中WebApplicationContext是如何构建出来的"/>
+<meta name="twitter:description" content="一、DispatcherServlet/ContextLoaderListener 问：这两者有啥关联呢？ 结论：这两者都会去构建 WebAppl"/>
+
+
+  
+  
+  
+  
+  <link rel="stylesheet" href="https://jxsrlsl1234.github.io/assets/css/style.min.699f46622e3574a7f9ecca4c5877067845fe89ffcd9c4335df2dff23ddae215e.css" integrity="sha256-aZ9GYi41dKf57MpMWHcGeEX&#43;if/NnEM13y3/I92uIV4=">
+
+  <script src="https://jxsrlsl1234.github.io/assets/js/main.min.182da266209851bc7c828aa7377f98f914e1e76c8decdd53a6cbe9bffea92cde.js" integrity="sha256-GC2iZiCYUbx8goqnN3&#43;Y&#43;RTh52yN7N1Tpsvpv/6pLN4="></script>
+  
+  </head><body><header class="header-container layout-block layout-padding">
+  <div class="header-inner content-padding-large soft-size--large soft-style--box">
+    <div class="header-logo">
+      <a href="https://jxsrlsl1234.github.io/"><h1>非洲大白脸</h1></a>
+    </div>
+    <nav class="header-nav">
+      <div class="header-nav--btn">
+        <div class="btn-item"></div>
+        <div class="btn-item"></div>
+        <div class="btn-item"></div>
+      </div>
+      <div class="header-nav--list">
+        <div>
+          
+          <a class="list-item soft-size--small soft-style--hover soft-style--active" href="/" title="">HOME</a>
+          
+          <a class="list-item soft-size--small soft-style--hover soft-style--active" href="/blogs" title="">BLOG</a>
+          
+        </div>
+      </div>
+    </nav>
+  </div>
+</header><main id="content">
+    
+
+    <div class="single-container layout-block">
+      <div class="article-info">
+        <div class="article-header layout-padding">
+          <div class="article-cover card-container content-padding-large soft-size--large soft-style--box ">
+
+  <div class="card-cover">
+    
+  </div>
+
+  <div class="card-text">
+    <h1 class="card-text--title">SpringMVC项目中WebApplicationContext是如何构建出来的</h1>
+    
+      <p class="card-text--row">2022-12-22 15:50</p>
+      
+      
+      
+
+      
+      
+    
+  </div>
+
+</div>
+        </div>
+
+        <div class="article-content">
+          <div class="markdown-body content-padding-large soft-size--large soft-style--box">
+            <h2 id="一dispatcherservletcontextloaderlistener">一、DispatcherServlet/ContextLoaderListener</h2>
+<p><strong>问：这两者有啥关联呢？</strong></p>
+<p><strong>结论：这两者都会去构建 WebApplicationContext。并且构建出的 WebApplicationContext是独立的，但有父子关系。</strong></p>
+<p>在很多项目的web.xml中会发现配置了这两者</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#75715e">&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;</span>
+<span style="color:#f92672">&lt;web-app</span> <span style="color:#a6e22e">version=</span><span style="color:#e6db74">&#34;3.0&#34;</span> <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;http://java.sun.com/xml/ns/javaee&#34;</span>
+    <span style="color:#a6e22e">xmlns:xsi=</span><span style="color:#e6db74">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span>
+    <span style="color:#a6e22e">xsi:schemaLocation=</span><span style="color:#e6db74">&#34;http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd&#34;</span><span style="color:#f92672">&gt;</span>
+    
+     <span style="color:#75715e">&lt;!-- 监听器配置 --&gt;</span>
+    <span style="color:#f92672">&lt;listener&gt;</span>
+    	<span style="color:#f92672">&lt;listener-class&gt;</span>org.springframework.web.context.ContextLoaderListener<span style="color:#f92672">&lt;/listener-class&gt;</span>
+    <span style="color:#f92672">&lt;/listener&gt;</span>
+    
+    <span style="color:#75715e">&lt;!-- 上下文参数，在监听器中被使用 --&gt;</span>
+    <span style="color:#75715e">&lt;!-- 监听器配置文件路径 --&gt;</span>
+    <span style="color:#f92672">&lt;context-param&gt;</span>
+    	<span style="color:#f92672">&lt;param-name&gt;</span>contextConfigLocation<span style="color:#f92672">&lt;/param-name&gt;</span>
+    	<span style="color:#f92672">&lt;param-value&gt;</span>
+        	classpath:applicationContext.xml
+        <span style="color:#f92672">&lt;/param-value&gt;</span>
+    <span style="color:#f92672">&lt;/context-param&gt;</span>
+    
+    <span style="color:#75715e">&lt;!-- 前端控制器配置 --&gt;</span>
+    <span style="color:#f92672">&lt;servlet&gt;</span>
+        <span style="color:#75715e">&lt;!--在DispatcherServlet的初始化过程中，框架会在web应用的WEB-INF文件夹下默认寻找名为[servlet-name]-servlet.xml 的配置文件，生成文件中定义的bean。如以下默认寻找api-servlet.xml--&gt;</span>
+    	<span style="color:#f92672">&lt;servlet-name&gt;</span>api<span style="color:#f92672">&lt;/servlet-name&gt;</span>
+    	<span style="color:#f92672">&lt;servlet-class&gt;</span>org.springframework.web.servlet.DispatcherServlet<span style="color:#f92672">&lt;/servlet-class&gt;</span>
+    	<span style="color:#f92672">&lt;init-param&gt;</span>
+            <span style="color:#75715e">&lt;!-- 前端控制器配置文件路径 --&gt;</span>
+    		<span style="color:#f92672">&lt;param-name&gt;</span>contextConfigLocation<span style="color:#f92672">&lt;/param-name&gt;</span>
+    		<span style="color:#f92672">&lt;param-value&gt;</span>classpath:applicationContext-mvc.xml<span style="color:#f92672">&lt;/param-value&gt;</span>
+    	<span style="color:#f92672">&lt;/init-param&gt;</span>
+        <span style="color:#75715e">&lt;!--是启动顺序，让这个Servlet随Servletp容器一起启动。--&gt;</span>
+    	<span style="color:#f92672">&lt;load-on-startup&gt;</span>1<span style="color:#f92672">&lt;/load-on-startup&gt;</span>
+    <span style="color:#f92672">&lt;/servlet&gt;</span>
+    
+    <span style="color:#f92672">&lt;servlet-mapping&gt;</span>
+        <span style="color:#75715e">&lt;!--这个Servlet的名字是api，可以有多个DispatcherServlet，是通过名字来区分的。每一个DispatcherServlet有自己的WebApplicationContext上下文对象。同时保存的ServletContext中和Request对象中.--&gt;</span>
+        <span style="color:#75715e">&lt;!--ApplicationContext是Spring的核心，Context我们通常解释为上下文环境，我想用“容器”来表述它更容易理解一些，ApplicationContext则是“应用的容器”了:P，Spring把Bean放在这个容器中，在需要的时候，用getBean方法取出--&gt;</span>
+    	<span style="color:#f92672">&lt;servlet-name&gt;</span>api<span style="color:#f92672">&lt;/servlet-name&gt;</span>
+        <span style="color:#75715e">&lt;!--Servlet拦截匹配规则可以自已定义，当映射为@RequestMapping(&#34;/user/add&#34;)时，为例,拦截哪种URL合适？--&gt;</span>
+        <span style="color:#75715e">&lt;!--1、拦截*.do、*.htm， 例如：/user/add.do,这是最传统的方式，最简单也最实用。不会导致静态文件（jpg,js,css）被拦截。--&gt;</span>
+        <span style="color:#75715e">&lt;!--2、拦截/，例如：/user/add,可以实现现在很流行的REST风格。很多互联网类型的应用很喜欢这种风格的URL。弊端：会导致静态文件（jpg,js,css）被拦截后不能正常显示。 --&gt;</span>
+    	<span style="color:#f92672">&lt;url-pattern&gt;</span>/<span style="color:#f92672">&lt;/url-pattern&gt;</span>
+    <span style="color:#f92672">&lt;/servlet-mapping&gt;</span>
+
+<span style="color:#f92672">&lt;/web-app&gt;</span>
+</code></pre></div><p>本文中，我们暂且把DispacherServlet内部构建出来的WebApplicationContext称为<strong>mvcWebApplicationContext</strong>;</p>
+<p>把ContextLoaderListener 构建出来的WebApplicationContext称为<strong>RootWebApplicationContext</strong>;</p>
+<h3 id="11-contextloaderlistener">1.1 ContextLoaderListener</h3>
+<p>ContextLoaderListener直接实现了javax.servlet.ServletContextListener接口，因此直接在重写的方法org.springframework.web.context.ContextLoaderListener#contextInitialized 中调用ContextLoader，进行初始化webApplicationContext</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e">	 * Initialize the root web application context.
+</span><span style="color:#75715e">	 */</span>
+	<span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">contextInitialized</span><span style="color:#f92672">(</span>ServletContextEvent event<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+		initWebApplicationContext<span style="color:#f92672">(</span>event<span style="color:#f92672">.</span><span style="color:#a6e22e">getServletContext</span><span style="color:#f92672">());</span>
+	<span style="color:#f92672">}</span>
+</code></pre></div><p>其中源码如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> WebApplicationContext <span style="color:#a6e22e">initWebApplicationContext</span><span style="color:#f92672">(</span>ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  <span style="color:#75715e">// contextLoader先从servletContext属性中找RootWebApplicationContext，一定不能存在，
+</span><span style="color:#75715e"></span>  <span style="color:#75715e">// 存在说明已经有一个RootWebApplicationContext,已经初始化过一个了
+</span><span style="color:#75715e"></span>		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">getAttribute</span><span style="color:#f92672">(</span>WebApplicationContext<span style="color:#f92672">.</span><span style="color:#a6e22e">ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE</span><span style="color:#f92672">)</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span>
+					<span style="color:#e6db74">&#34;Cannot initialize context because there is already a root application context present - &#34;</span> <span style="color:#f92672">+</span>
+					<span style="color:#e6db74">&#34;check whether you have multiple ContextLoader* definitions in your web.xml!&#34;</span><span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+
+		servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">log</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Initializing Spring root WebApplicationContext&#34;</span><span style="color:#f92672">);</span>
+		Log logger <span style="color:#f92672">=</span> LogFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getLog</span><span style="color:#f92672">(</span>ContextLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>logger<span style="color:#f92672">.</span><span style="color:#a6e22e">isInfoEnabled</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+			logger<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Root WebApplicationContext: initialization started&#34;</span><span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">long</span> startTime <span style="color:#f92672">=</span> System<span style="color:#f92672">.</span><span style="color:#a6e22e">currentTimeMillis</span><span style="color:#f92672">();</span>
+
+		<span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+			<span style="color:#75715e">// Store context in local instance variable, to guarantee that
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// it is available on ServletContext shutdown.
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// ContextLoader对象中存储RootWebApplicationContext的变量
+</span><span style="color:#75715e"></span>			<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#75715e">// 直接创建一个RootWebApplicationContext
+</span><span style="color:#75715e"></span>        <span style="color:#75715e">// 创建的方式就是通过读取某些方式指定（servlet属性对中的contextClass或者ContextLoader.properties文件中指定的class）的ContextClass，
+</span><span style="color:#75715e"></span>        <span style="color:#75715e">// 然后通过反射的方式去实例化这个contextClass的对象
+</span><span style="color:#75715e"></span>				<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span> <span style="color:#f92672">=</span> createWebApplicationContext<span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+			<span style="color:#f92672">}</span>
+			<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span> <span style="color:#66d9ef">instanceof</span> ConfigurableWebApplicationContext<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+				ConfigurableWebApplicationContext cwac <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>ConfigurableWebApplicationContext<span style="color:#f92672">)</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span><span style="color:#f92672">;</span>
+        <span style="color:#75715e">// 没有refresh的话进入if
+</span><span style="color:#75715e"></span>				<span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>cwac<span style="color:#f92672">.</span><span style="color:#a6e22e">isActive</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+					<span style="color:#75715e">// The context has not yet been refreshed -&gt; provide services such as
+</span><span style="color:#75715e"></span>					<span style="color:#75715e">// setting the parent context, setting the application context id, etc
+</span><span style="color:#75715e"></span>					<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cwac<span style="color:#f92672">.</span><span style="color:#a6e22e">getParent</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+						<span style="color:#75715e">// The context instance was injected without an explicit parent -&gt;
+</span><span style="color:#75715e"></span>						<span style="color:#75715e">// determine parent for root web application context, if any.
+</span><span style="color:#75715e"></span>            <span style="color:#75715e">// 这里parent其实就是null，RootWebApplicationContext的parent就是null
+</span><span style="color:#75715e"></span>						ApplicationContext parent <span style="color:#f92672">=</span> loadParentContext<span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+						cwac<span style="color:#f92672">.</span><span style="color:#a6e22e">setParent</span><span style="color:#f92672">(</span>parent<span style="color:#f92672">);</span>
+					<span style="color:#f92672">}</span>
+          <span style="color:#75715e">// 愉快地refresh了
+</span><span style="color:#75715e"></span>					configureAndRefreshWebApplicationContext<span style="color:#f92672">(</span>cwac<span style="color:#f92672">,</span> servletContext<span style="color:#f92672">);</span>
+				<span style="color:#f92672">}</span>
+			<span style="color:#f92672">}</span>
+      <span style="color:#75715e">// 把这个RootWebApplicationContext设置到ServletContext的org.springframework.web.context.WebApplicationContext.ROOT属性里
+</span><span style="color:#75715e"></span>			servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">setAttribute</span><span style="color:#f92672">(</span>WebApplicationContext<span style="color:#f92672">.</span><span style="color:#a6e22e">ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span><span style="color:#f92672">);</span>
+
+			ClassLoader ccl <span style="color:#f92672">=</span> Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">currentThread</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getContextClassLoader</span><span style="color:#f92672">();</span>
+			<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>ccl <span style="color:#f92672">==</span> ContextLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getClassLoader</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+				currentContext <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span><span style="color:#f92672">;</span>
+			<span style="color:#f92672">}</span>
+			<span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>ccl <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#75715e">//  保存classloader和RootWebApplicationContext的映射关系
+</span><span style="color:#75715e"></span>				currentContextPerThread<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>ccl<span style="color:#f92672">,</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span><span style="color:#f92672">);</span>
+			<span style="color:#f92672">}</span>
+
+			<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>logger<span style="color:#f92672">.</span><span style="color:#a6e22e">isInfoEnabled</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+				<span style="color:#66d9ef">long</span> elapsedTime <span style="color:#f92672">=</span> System<span style="color:#f92672">.</span><span style="color:#a6e22e">currentTimeMillis</span><span style="color:#f92672">()</span> <span style="color:#f92672">-</span> startTime<span style="color:#f92672">;</span>
+				logger<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Root WebApplicationContext initialized in &#34;</span> <span style="color:#f92672">+</span> elapsedTime <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; ms&#34;</span><span style="color:#f92672">);</span>
+			<span style="color:#f92672">}</span>
+
+			<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">context</span><span style="color:#f92672">;</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>RuntimeException <span style="color:#f92672">|</span> Error ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			logger<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Context initialization failed&#34;</span><span style="color:#f92672">,</span> ex<span style="color:#f92672">);</span>
+      <span style="color:#75715e">// 失败的话属性值设置为异常对象
+</span><span style="color:#75715e"></span>			servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">setAttribute</span><span style="color:#f92672">(</span>WebApplicationContext<span style="color:#f92672">.</span><span style="color:#a6e22e">ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE</span><span style="color:#f92672">,</span> ex<span style="color:#f92672">);</span>
+			<span style="color:#66d9ef">throw</span> ex<span style="color:#f92672">;</span>
+		<span style="color:#f92672">}</span>
+	<span style="color:#f92672">}</span>
+
+<span style="color:#75715e">//至此，ContextLoader中的WebApplicationContext（RootWebWebApplicationContext）就构建出来了。
+</span></code></pre></div><h3 id="12-dispacherservlet">1.2 DispacherServlet</h3>
+<p>整个继承链路这么看：</p>
+<p>
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/DispatcherServlet%E7%BB%A7%E6%89%BF.jpg" alt="" loading="lazy" /></p>
+</p>
+<p>DispacherServlet是集成了FrameworkServlet的初始化WebApplicationContext的方法的。</p>
+<p>源码如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">protected</span> WebApplicationContext <span style="color:#a6e22e">initWebApplicationContext</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+  <span style="color:#75715e">//先去ServletContext的这个属性（org.springframework.web.context.WebApplicationContext.ROOT）里找有没有对应的RootWebApplicationContext
+</span><span style="color:#75715e"></span>		WebApplicationContext rootContext <span style="color:#f92672">=</span>
+				WebApplicationContextUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">getWebApplicationContext</span><span style="color:#f92672">(</span>getServletContext<span style="color:#f92672">());</span>
+		WebApplicationContext wac <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+		<span style="color:#75715e">// 首次进来一般DispacherServlet里webApplicationContext变量都是null的，因为null你才需要创建嘛，
+</span><span style="color:#75715e"></span>   <span style="color:#75715e">//当然也不排除构建DispacherServlet的是时候通过构造函数，塞了一个webApplicationContext对象进来
+</span><span style="color:#75715e"></span>		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">webApplicationContext</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#75715e">// 如果是构造函数直接塞进来的，直接赋值
+</span><span style="color:#75715e"></span>			wac <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">webApplicationContext</span><span style="color:#f92672">;</span>
+			<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>wac <span style="color:#66d9ef">instanceof</span> ConfigurableWebApplicationContext<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+				ConfigurableWebApplicationContext cwac <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>ConfigurableWebApplicationContext<span style="color:#f92672">)</span> wac<span style="color:#f92672">;</span>
+        <span style="color:#75715e">// 如果在这个mvcWebApplicationContext没有refresh过的话
+</span><span style="color:#75715e"></span>				<span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>cwac<span style="color:#f92672">.</span><span style="color:#a6e22e">isActive</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+					<span style="color:#75715e">// The context has not yet been refreshed -&gt; provide services such as
+</span><span style="color:#75715e"></span>					<span style="color:#75715e">// setting the parent context, setting the application context id, etc
+</span><span style="color:#75715e"></span>					<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cwac<span style="color:#f92672">.</span><span style="color:#a6e22e">getParent</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+						<span style="color:#75715e">// The context instance was injected without an explicit parent -&gt; set
+</span><span style="color:#75715e"></span>						<span style="color:#75715e">// the root application context (if any; may be null) as the parent
+</span><span style="color:#75715e"></span>            <span style="color:#75715e">// 如果这个mvcWebApplicationContext没有设置过parent，就把前面拿到的RootWebApplicationContext 设置为它的parent
+</span><span style="color:#75715e"></span>            <span style="color:#75715e">// 注意：子context是可以注入parentContext中的Bean的，相反不可以
+</span><span style="color:#75715e"></span>						cwac<span style="color:#f92672">.</span><span style="color:#a6e22e">setParent</span><span style="color:#f92672">(</span>rootContext<span style="color:#f92672">);</span>
+					<span style="color:#f92672">}</span>
+          <span style="color:#75715e">// 没有refresh，就refresh一次
+</span><span style="color:#75715e"></span>					configureAndRefreshWebApplicationContext<span style="color:#f92672">(</span>cwac<span style="color:#f92672">);</span>
+				<span style="color:#f92672">}</span>
+			<span style="color:#f92672">}</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>wac <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#75715e">// No context instance was injected at construction time -&gt; see if one
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// has been registered in the servlet context. If one exists, it is assumed
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// that the parent context (if any) has already been set and that the
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// user has performed any initialization such as setting the context id
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// 构造函数没有注入的话，就从ServletCOntext指定的属性里去获取mvcWebApplicationContext
+</span><span style="color:#75715e"></span>			wac <span style="color:#f92672">=</span> findWebApplicationContext<span style="color:#f92672">();</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>wac <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#75715e">// No context instance is defined for this servlet -&gt; create a local one
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// 如果以上步骤都发现servletContext中没有，那只能自己创建一个了
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// 内部可以创建指定类型的ConfigurableWebApplicationContext，然后refresh
+</span><span style="color:#75715e"></span>			wac <span style="color:#f92672">=</span> createWebApplicationContext<span style="color:#f92672">(</span>rootContext<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">refreshEventReceived</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#75715e">// Either the context is not a ConfigurableApplicationContext with refresh
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// support or the context injected at construction time had already been
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// refreshed -&gt; trigger initial onRefresh manually here.
+</span><span style="color:#75715e"></span>			<span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">onRefreshMonitor</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+				onRefresh<span style="color:#f92672">(</span>wac<span style="color:#f92672">);</span>
+			<span style="color:#f92672">}</span>
+		<span style="color:#f92672">}</span>
+
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">publishContext</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#75715e">// Publish the context as a servlet context attribute.
+</span><span style="color:#75715e"></span>			String attrName <span style="color:#f92672">=</span> getServletContextAttributeName<span style="color:#f92672">();</span>
+      <span style="color:#75715e">// 将这个mvcWebApplicationContext保存在servletContext的属性对里，
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// key为org.springframework.web.servlet.FrameworkServlet.CONTEXT.[servletName]
+</span><span style="color:#75715e"></span>			getServletContext<span style="color:#f92672">().</span><span style="color:#a6e22e">setAttribute</span><span style="color:#f92672">(</span>attrName<span style="color:#f92672">,</span> wac<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+
+		<span style="color:#66d9ef">return</span> wac<span style="color:#f92672">;</span>
+	<span style="color:#f92672">}</span>
+<span style="color:#75715e">// 至此，DispacherServlet中的WebApplicationContext（webWebApplicationContext）就构建出来了。
+</span></code></pre></div><h3 id="13-结论">1.3 结论</h3>
+<p>从以上两段分析发现，ContextLoader 创建出来的 RootWebApplicationContext 会被存放在 ServletContext 的 <code>org.springframework.web.context.WebApplicationContext.ROOT</code> 属性里；后续 DispacherServlet 去构建mvcWebApplicationContext 的时候，会去 servletContext 里去<code>org.springframework.web.context.WebApplicationContext.ROOT</code>属性对应值的 RootWebApplicationContext 对象作为 mvcWebApplicationContext 的 parent。所以父子关系如下：</p>
+<p>
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/20221222152451.png" alt="" loading="lazy" /></p>
+</p>
+<h2 id="二webapplicationinitializerspringservletcontainerinitializer">二、WebApplicationInitializer/SpringServletContainerInitializer</h2>
+<h3 id="21-webapplicationinitializer">2.1 WebApplicationInitializer</h3>
+<p>WebApplicationInitializer 是一个接口，是基于Servlet 3.0实现的标准，其实这个接口实现类的目的都是替代web.xml，以编程式的方式替代web.xml对ServletContext的配置。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">WebApplicationInitializer</span> <span style="color:#f92672">{</span>
+
+	<span style="color:#75715e">/**
+</span><span style="color:#75715e">	 * Configure the given {@link ServletContext} with any servlets, filters, listeners
+</span><span style="color:#75715e">	 * context-params and attributes necessary for initializing this web application. See
+</span><span style="color:#75715e">	 * examples {@linkplain WebApplicationInitializer above}.
+</span><span style="color:#75715e">	 * @param servletContext the {@code ServletContext} to initialize
+</span><span style="color:#75715e">	 * @throws ServletException if any call against the given {@code ServletContext}
+</span><span style="color:#75715e">	 * throws a {@code ServletException}
+</span><span style="color:#75715e">	 */</span>
+	<span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> ServletException<span style="color:#f92672">;</span>
+</code></pre></div><p>这个接口最重要的一个实现类是 <code>org.springframework.web.servlet.support.AbstractDispatcherServletInitializer</code></p>
+<p><strong>可以按一下链路看：</strong></p>
+<p>
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/202212221529395.png" alt="" loading="lazy" /></p>
+</p>
+<p>具体这个方法代码如下：</p>
+<p><strong>org.springframework.web.context.AbstractContextLoaderInitializer#onStartup</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> ServletException <span style="color:#f92672">{</span>
+    <span style="color:#75715e">// 代替web.xml文件，直接注册一个ContextLoaderListener
+</span><span style="color:#75715e"></span>		registerContextLoaderListener<span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#75715e">/**
+</span><span style="color:#75715e">	 * Register a {@link ContextLoaderListener} against the given servlet context. The
+</span><span style="color:#75715e">	 * {@code ContextLoaderListener} is initialized with the application context returned
+</span><span style="color:#75715e">	 * from the {@link #createRootApplicationContext()} template method.
+</span><span style="color:#75715e">	 * @param servletContext the servlet context to register the listener against
+</span><span style="color:#75715e">	 */</span>
+	<span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">registerContextLoaderListener</span><span style="color:#f92672">(</span>ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">// 先创建RootWebApplicationContext
+</span><span style="color:#75715e"></span>		WebApplicationContext rootAppContext <span style="color:#f92672">=</span> createRootApplicationContext<span style="color:#f92672">();</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>rootAppContext <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			ContextLoaderListener listener <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ContextLoaderListener<span style="color:#f92672">(</span>rootAppContext<span style="color:#f92672">);</span>
+			listener<span style="color:#f92672">.</span><span style="color:#a6e22e">setContextInitializers</span><span style="color:#f92672">(</span>getRootApplicationContextInitializers<span style="color:#f92672">());</span>
+			servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">addListener</span><span style="color:#f92672">(</span>listener<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+			logger<span style="color:#f92672">.</span><span style="color:#a6e22e">debug</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;No ContextLoaderListener registered, as &#34;</span> <span style="color:#f92672">+</span>
+					<span style="color:#e6db74">&#34;createRootApplicationContext() did not return an application context&#34;</span><span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+	<span style="color:#f92672">}</span>
+</code></pre></div><p><strong>org.springframework.web.servlet.support.AbstractDispatcherServletInitializer#onStartup</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> ServletException <span style="color:#f92672">{</span>
+    <span style="color:#75715e">// 父类的目的是注册一个ContextLoaderListener
+</span><span style="color:#75715e"></span>		<span style="color:#66d9ef">super</span><span style="color:#f92672">.</span><span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+    <span style="color:#75715e">// 自己实现是注册一个DispacherServlet
+</span><span style="color:#75715e"></span>		registerDispatcherServlet<span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#75715e">/**
+</span><span style="color:#75715e">	 * Register a {@link DispatcherServlet} against the given servlet context.
+</span><span style="color:#75715e">	 * &lt;p&gt;This method will create a {@code DispatcherServlet} with the name returned by
+</span><span style="color:#75715e">	 * {@link #getServletName()}, initializing it with the application context returned
+</span><span style="color:#75715e">	 * from {@link #createServletApplicationContext()}, and mapping it to the patterns
+</span><span style="color:#75715e">	 * returned from {@link #getServletMappings()}.
+</span><span style="color:#75715e">	 * &lt;p&gt;Further customization can be achieved by overriding {@link
+</span><span style="color:#75715e">	 * #customizeRegistration(ServletRegistration.Dynamic)} or
+</span><span style="color:#75715e">	 * {@link #createDispatcherServlet(WebApplicationContext)}.
+</span><span style="color:#75715e">	 * @param servletContext the context to register the servlet against
+</span><span style="color:#75715e">	 */</span>
+	<span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">registerDispatcherServlet</span><span style="color:#f92672">(</span>ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+		String servletName <span style="color:#f92672">=</span> getServletName<span style="color:#f92672">();</span>
+		Assert<span style="color:#f92672">.</span><span style="color:#a6e22e">hasLength</span><span style="color:#f92672">(</span>servletName<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;getServletName() must not return null or empty&#34;</span><span style="color:#f92672">);</span>
+
+		WebApplicationContext servletAppContext <span style="color:#f92672">=</span> createServletApplicationContext<span style="color:#f92672">();</span>
+		Assert<span style="color:#f92672">.</span><span style="color:#a6e22e">notNull</span><span style="color:#f92672">(</span>servletAppContext<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;createServletApplicationContext() must not return null&#34;</span><span style="color:#f92672">);</span>
+
+    <span style="color:#75715e">// 直接创建一个DispacherServlet
+</span><span style="color:#75715e"></span>		FrameworkServlet dispatcherServlet <span style="color:#f92672">=</span> createDispatcherServlet<span style="color:#f92672">(</span>servletAppContext<span style="color:#f92672">);</span>
+		Assert<span style="color:#f92672">.</span><span style="color:#a6e22e">notNull</span><span style="color:#f92672">(</span>dispatcherServlet<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;createDispatcherServlet(WebApplicationContext) must not return null&#34;</span><span style="color:#f92672">);</span>
+		dispatcherServlet<span style="color:#f92672">.</span><span style="color:#a6e22e">setContextInitializers</span><span style="color:#f92672">(</span>getServletApplicationContextInitializers<span style="color:#f92672">());</span>
+
+		ServletRegistration<span style="color:#f92672">.</span><span style="color:#a6e22e">Dynamic</span> registration <span style="color:#f92672">=</span> servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">addServlet</span><span style="color:#f92672">(</span>servletName<span style="color:#f92672">,</span> dispatcherServlet<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>registration <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Failed to register servlet with name &#39;&#34;</span> <span style="color:#f92672">+</span> servletName <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;&#39;. &#34;</span> <span style="color:#f92672">+</span>
+					<span style="color:#e6db74">&#34;Check if there is another servlet registered under the same name.&#34;</span><span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+
+		registration<span style="color:#f92672">.</span><span style="color:#a6e22e">setLoadOnStartup</span><span style="color:#f92672">(</span>1<span style="color:#f92672">);</span>
+		registration<span style="color:#f92672">.</span><span style="color:#a6e22e">addMapping</span><span style="color:#f92672">(</span>getServletMappings<span style="color:#f92672">());</span>
+		registration<span style="color:#f92672">.</span><span style="color:#a6e22e">setAsyncSupported</span><span style="color:#f92672">(</span>isAsyncSupported<span style="color:#f92672">());</span>
+
+		Filter<span style="color:#f92672">[]</span> filters <span style="color:#f92672">=</span> getServletFilters<span style="color:#f92672">();</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>ObjectUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">(</span>filters<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Filter filter <span style="color:#f92672">:</span> filters<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+				registerServletFilter<span style="color:#f92672">(</span>servletContext<span style="color:#f92672">,</span> filter<span style="color:#f92672">);</span>
+			<span style="color:#f92672">}</span>
+		<span style="color:#f92672">}</span>
+
+		customizeRegistration<span style="color:#f92672">(</span>registration<span style="color:#f92672">);</span>
+	<span style="color:#f92672">}</span>
+</code></pre></div><p>从上面这个类发下，这个类完成了webx.xml的主要功能，就是注册了 <strong>RootWebApplicationContext</strong> 和 <strong>DispacherServlet</strong>。</p>
+<h3 id="22-springservletcontainerinitializer">2.2 SpringServletContainerInitializer</h3>
+<p>问题来了，2.1中的WebApplicationInitializer是如何被触发的呢？</p>
+<p>这也是本节介绍的SpringServletContainerInitializer的作用。</p>
+<p>SpringServletContainerInitializer 是 ServletContainerInitializer 的一个实现，而 ServletContainerInitializer 是Servlet 3.0提出的新接口，接口注释上写明了该接口是为了在web服务启动阶段去编程式地注册servlet、filter、listener。另外这个接口的实现可以绑定 <code>{@link javax.servlet.annotation.HandlesTypes HandlesTypes}</code> 注解，绑定后，启动过程会将改注解指定的类型的实现生成一个Set，传入onStartup方法。改接口的实现是采用Spi方式读取，所以 <code>org.springframework.web.SpringServletContainerInitializer</code> 这个类在spring-web包内是明确指定了实现的</p>
+<p>
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/SpringServletContainerInitializer.png" alt="" loading="lazy" /></p>
+</p>
+<p>同时，可以发现 <strong>SpringServletContainerInitializer</strong> 是 绑定了一组 <strong>WebApplicationInitializer</strong> 实现的。如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">// HandlesTypes注解，绑定后，启动过程会将该注解指定的类型的实现类生成一个Set，传入onStartup方法
+</span><span style="color:#75715e"></span><span style="color:#a6e22e">@HandlesTypes</span><span style="color:#f92672">(</span>WebApplicationInitializer<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SpringServletContainerInitializer</span> <span style="color:#66d9ef">implements</span> ServletContainerInitializer <span style="color:#f92672">{</span>
+  <span style="color:#75715e">// webAppInitializerClasses就是收集到的WebApplicationInitializer的所有实现类
+</span><span style="color:#75715e"></span>  <span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span><span style="color:#a6e22e">@Nullable</span> Set<span style="color:#f92672">&lt;</span>Class<span style="color:#f92672">&lt;?&gt;&gt;</span> webAppInitializerClasses<span style="color:#f92672">,</span> ServletContext servletContext<span style="color:#f92672">)</span>
+			<span style="color:#66d9ef">throws</span> ServletException <span style="color:#f92672">{</span>
+
+		List<span style="color:#f92672">&lt;</span>WebApplicationInitializer<span style="color:#f92672">&gt;</span> initializers <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> LinkedList<span style="color:#f92672">&lt;&gt;();</span>
+
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>webAppInitializerClasses <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Class<span style="color:#f92672">&lt;?&gt;</span> waiClass <span style="color:#f92672">:</span> webAppInitializerClasses<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+				<span style="color:#75715e">// Be defensive: Some servlet containers provide us with invalid classes,
+</span><span style="color:#75715e"></span>				<span style="color:#75715e">// no matter what @HandlesTypes says...
+</span><span style="color:#75715e"></span>        <span style="color:#75715e">// 非接口与非抽象类
+</span><span style="color:#75715e"></span>				<span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>waiClass<span style="color:#f92672">.</span><span style="color:#a6e22e">isInterface</span><span style="color:#f92672">()</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>Modifier<span style="color:#f92672">.</span><span style="color:#a6e22e">isAbstract</span><span style="color:#f92672">(</span>waiClass<span style="color:#f92672">.</span><span style="color:#a6e22e">getModifiers</span><span style="color:#f92672">())</span> <span style="color:#f92672">&amp;&amp;</span>
+						WebApplicationInitializer<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">.</span><span style="color:#a6e22e">isAssignableFrom</span><span style="color:#f92672">(</span>waiClass<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+					<span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            <span style="color:#75715e">// 反射实例化WebApplicationInitializer对象
+</span><span style="color:#75715e"></span>						initializers<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">((</span>WebApplicationInitializer<span style="color:#f92672">)</span>
+								ReflectionUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">accessibleConstructor</span><span style="color:#f92672">(</span>waiClass<span style="color:#f92672">).</span><span style="color:#a6e22e">newInstance</span><span style="color:#f92672">());</span>
+					<span style="color:#f92672">}</span>
+					<span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+						<span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> ServletException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Failed to instantiate WebApplicationInitializer class&#34;</span><span style="color:#f92672">,</span> ex<span style="color:#f92672">);</span>
+					<span style="color:#f92672">}</span>
+				<span style="color:#f92672">}</span>
+			<span style="color:#f92672">}</span>
+		<span style="color:#f92672">}</span>
+
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>initializers<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+			servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">log</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;No Spring WebApplicationInitializer types detected on classpath&#34;</span><span style="color:#f92672">);</span>
+			<span style="color:#66d9ef">return</span><span style="color:#f92672">;</span>
+		<span style="color:#f92672">}</span>
+
+		servletContext<span style="color:#f92672">.</span><span style="color:#a6e22e">log</span><span style="color:#f92672">(</span>initializers<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; Spring WebApplicationInitializers detected on classpath&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#75715e">// 排序
+</span><span style="color:#75715e"></span>		AnnotationAwareOrderComparator<span style="color:#f92672">.</span><span style="color:#a6e22e">sort</span><span style="color:#f92672">(</span>initializers<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>WebApplicationInitializer initializer <span style="color:#f92672">:</span> initializers<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// 对美一个 WebApplicationInitializer 执行启动
+</span><span style="color:#75715e"></span>			initializer<span style="color:#f92672">.</span><span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+	<span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>因此可以发现，<strong>SpringServletContainerInitializer</strong> 就像 spring-web 提供的一个 <strong>WebApplicationInitializer</strong> 代理对象，会在Servlet容器启动过程中的某个事件阶段去进行 对**WebApplicationInitializer.onStartup 进行代理，**从而也会构建出上述的各种 WebApplicationContext。</p>
+<p>因此只要引入了spring-web（SpringServletContainerInitializer）及spring-webmvc（AbstractDispatcherServletInitializer）包，那么WebApplicationContext的构建就会自然而然的发生。</p>
+<h2 id="三部分疑问">三、部分疑问</h2>
+<h3 id="31-本地使用idea的tomcat部署一个springmvc项目按理来说应该是会执行到-orgspringframeworkwebspringservletcontainerinitializeronstartup-方法的但是debug发现并没有使用springboot工程启动springmvc项目发现也没有执行到-orgspringframeworkwebspringservletcontainerinitializeronstartup-方法">3.1 本地使用IDEA的tomcat部署一个SpringMVC项目，按理来说应该是会执行到 org.springframework.web.SpringServletContainerInitializer#onStartup 方法的，但是debug发现并没有？使用SpringBoot工程启动springmvc项目，发现也没有执行到 org.springframework.web.SpringServletContainerInitializer#onStartup 方法？</h3>
+<p>答案：</p>
+<p>针对IDEA 的tomcat部署springmvc，SpringServletContainerInitializer未生效原因是：工程的web.xml中配置了<!-- raw HTML omitted -->元素，这个会导致不去扫描Jar包内的实现，参考：https://mangocool.com/1607412545816.html</p>
+<p>针对springboot工程，实际上启动web项目，使用的默认是内置的tomcat，使用的ServletContext实现是springboot的实现：<strong>org.springframework.boot.web.embedded.tomcat.TomcatEmbeddedContext。</strong> 而在createWebServer的时候，其实tomcat的整个启动流程已经被改写过了，同时ServletContext的构建其实也是被改写了，不像原本外置tomcat会通过SPI机制，找到实现ServletContainerInitializer接口的类，而在TomcatEmbeddedContext中，ServletContainerInitializer的实现实际上是手动添加进去的，源码如下：</p>
+<p><strong>org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory#configureContext</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">configureContext</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">,</span> ServletContextInitializer<span style="color:#f92672">[]</span> initializers<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+		TomcatStarter starter <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TomcatStarter<span style="color:#f92672">(</span>initializers<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>context <span style="color:#66d9ef">instanceof</span> TomcatEmbeddedContext<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			TomcatEmbeddedContext embeddedContext <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>TomcatEmbeddedContext<span style="color:#f92672">)</span> context<span style="color:#f92672">;</span>
+			embeddedContext<span style="color:#f92672">.</span><span style="color:#a6e22e">setStarter</span><span style="color:#f92672">(</span>starter<span style="color:#f92672">);</span>
+			embeddedContext<span style="color:#f92672">.</span><span style="color:#a6e22e">setFailCtxIfServletStartFails</span><span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+  	<span style="color:#75715e">// 其实只内置了一个 TomcatStarter 这个 ServletContainerInitializer实现
+</span><span style="color:#75715e"></span>  <span style="color:#75715e">// 而TomcatStarter其实是对ServletContextInitializer的代理
+</span><span style="color:#75715e"></span>		context<span style="color:#f92672">.</span><span style="color:#a6e22e">addServletContainerInitializer</span><span style="color:#f92672">(</span>starter<span style="color:#f92672">,</span> NO_CLASSES<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>LifecycleListener lifecycleListener <span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">contextLifecycleListeners</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			context<span style="color:#f92672">.</span><span style="color:#a6e22e">addLifecycleListener</span><span style="color:#f92672">(</span>lifecycleListener<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Valve valve <span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">contextValves</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			context<span style="color:#f92672">.</span><span style="color:#a6e22e">getPipeline</span><span style="color:#f92672">().</span><span style="color:#a6e22e">addValve</span><span style="color:#f92672">(</span>valve<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>ErrorPage errorPage <span style="color:#f92672">:</span> getErrorPages<span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">new</span> TomcatErrorPage<span style="color:#f92672">(</span>errorPage<span style="color:#f92672">).</span><span style="color:#a6e22e">addToContext</span><span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>MimeMappings<span style="color:#f92672">.</span><span style="color:#a6e22e">Mapping</span> mapping <span style="color:#f92672">:</span> getMimeMappings<span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+			context<span style="color:#f92672">.</span><span style="color:#a6e22e">addMimeMapping</span><span style="color:#f92672">(</span>mapping<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(),</span> mapping<span style="color:#f92672">.</span><span style="color:#a6e22e">getMimeType</span><span style="color:#f92672">());</span>
+		<span style="color:#f92672">}</span>
+		configureSession<span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">new</span> DisableReferenceClearingContextCustomizer<span style="color:#f92672">().</span><span style="color:#a6e22e">customize</span><span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>TomcatContextCustomizer customizer <span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">tomcatContextCustomizers</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			customizer<span style="color:#f92672">.</span><span style="color:#a6e22e">customize</span><span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+	<span style="color:#f92672">}</span>
+</code></pre></div><p><strong>org.springframework.boot.web.embedded.tomcat.TomcatStarter</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TomcatStarter</span> <span style="color:#66d9ef">implements</span> ServletContainerInitializer <span style="color:#f92672">{</span>
+
+	<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> Log logger <span style="color:#f92672">=</span> LogFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getLog</span><span style="color:#f92672">(</span>TomcatStarter<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+
+	<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> ServletContextInitializer<span style="color:#f92672">[]</span> initializers<span style="color:#f92672">;</span>
+
+	<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">volatile</span> Exception startUpException<span style="color:#f92672">;</span>
+
+	TomcatStarter<span style="color:#f92672">(</span>ServletContextInitializer<span style="color:#f92672">[]</span> initializers<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+		<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">initializers</span> <span style="color:#f92672">=</span> initializers<span style="color:#f92672">;</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>Set<span style="color:#f92672">&lt;</span>Class<span style="color:#f92672">&lt;?&gt;&gt;</span> classes<span style="color:#f92672">,</span> ServletContext servletContext<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> ServletException <span style="color:#f92672">{</span>
+		<span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// 对ServletContextInitializer的代理，实际上全执行ServletContextInitializer.onStartup(servletContext);
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// 但要注意这里的 ServletContextInitializer 是 org.springframework.boot.web.servlet.ServletContextInitializer
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// 是spring-boot提供的，主要是为了spring管理ServletContextInitializer 而不是servlet容器来管理
+</span><span style="color:#75715e"></span>			<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>ServletContextInitializer initializer <span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">initializers</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+				initializer<span style="color:#f92672">.</span><span style="color:#a6e22e">onStartup</span><span style="color:#f92672">(</span>servletContext<span style="color:#f92672">);</span>
+			<span style="color:#f92672">}</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">startUpException</span> <span style="color:#f92672">=</span> ex<span style="color:#f92672">;</span>
+			<span style="color:#75715e">// Prevent Tomcat from logging and re-throwing when we know we can
+</span><span style="color:#75715e"></span>			<span style="color:#75715e">// deal with it in the main thread, but log for information here.
+</span><span style="color:#75715e"></span>			<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>logger<span style="color:#f92672">.</span><span style="color:#a6e22e">isErrorEnabled</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+				logger<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Error starting Tomcat context. Exception: &#34;</span> <span style="color:#f92672">+</span> ex<span style="color:#f92672">.</span><span style="color:#a6e22e">getClass</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;. Message: &#34;</span>
+						<span style="color:#f92672">+</span> ex<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">());</span>
+			<span style="color:#f92672">}</span>
+		<span style="color:#f92672">}</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#66d9ef">public</span> Exception <span style="color:#a6e22e">getStartUpException</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">startUpException</span><span style="color:#f92672">;</span>
+	<span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div>
+          </div>
+        </div>
+                 
+      
+  
+  
+  
+  
+
+  
+
+  <div class="article-paging">
+    
+    
+      <section class="post-paging--item card-container content-padding-primary soft-size--primary soft-style--box">
+  <div class="card-cover" ></div>
+  <div class="card-text">
+    <a href="/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/"><h4 class="card-text--title text-ellipsis">自定义Tomcat优雅退出逻辑</h4></a>
+    <p class="card-text--row">2022-12-05 16:25</p>
+  </div>
+</section>
+    
+  </div>
+</div>
+  <aside class="widget-info">
+    
+<section class="aside-widget widget-author content-padding-large soft-size--large soft-style--box">
+  <div class="widget-body">
+    <div class="author-box avatar">
+      
+      <img class="author-avatar soft-size--round soft-style--box" src="https://gimg2.baidu.com/image_search/src=http%3A%2F%2Flmg.jj20.com%2Fup%2Fallimg%2Ftx26%2F01080117025728.jpg&amp;refer=http%3A%2F%2Flmg.jj20.com&amp;app=2002&amp;size=f9999,10000&amp;q=a80&amp;n=0&amp;g=0n&amp;fmt=auto?sec=1672826145&amp;t=a153646188cf215f2f529313c26f70de" alt="jxsrlsl1234">
+      
+      <h2 class="author-name text-ellipsis">jxsrlsl1234</h2>
+      
+      <p class="author-desc text-ellipsis">一个努力奋斗的社畜</p>
+      
+    </div>
+  </div>
+</section>
+
+
+    
+
+
+    
+
+
+
+
+
+
+
+
+
+
+<section class="aside-widget widget-articles content-padding-large soft-size--large soft-style--box">
+  <h2 class="widget-header">
+    <div class="title">
+      <span>Related Posts</span>
+    </div>
+  </h2>
+  <div class="widget-body">
+    <ul class="post-list">
+      
+      
+        <li class="post-item"><a href="/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/">自定义Tomcat优雅退出逻辑</a></li>
+      
+        <li class="post-item"><a href="/posts/202212050049/">First</a></li>
+      
+    </ul>
+  </div>
+</section>
+
+
+    
+
+
+
+
+
+    
+
+
+
+
+  </aside>
+</div>
+  </main><footer class="footer-container layout-block">
+  
+  <div class="social-icons">
+    
+      <a class="soft-size--primary soft-style--box" href="https://github.com/jxsrlsl1234" target="_blank" rel="noopener noreferrer">
+          
+        <svg class="icon icon-github" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+          <path d="M64.6 512c0 195.6 125.4 361.9 300.1 422.9 23.5 5.9 19.9-10.8 19.9-22.2v-77.6c-135.8 15.9-141.3-74-150.5-89-18.5-31.5-61.9-39.5-49-54.5 31-15.9 62.5 4 98.9 58 26.4 39.1 77.9 32.5 104.1 26 5.7-23.5 17.9-44.5 34.7-60.9-140.7-25.2-199.4-111.1-199.4-213.3 0-49.5 16.4-95.1 48.4-131.8-20.4-60.6 1.9-112.4 4.9-120.1 58.2-5.2 118.5 41.6 123.3 45.3 33.1-8.9 70.8-13.7 112.9-13.7 42.4 0 80.3 4.9 113.5 13.9 11.3-8.6 67.3-48.8 121.4-43.9 2.9 7.7 24.7 58.3 5.5 118.1 32.5 36.8 49 82.8 49 132.4 0 102.3-59 188.3-200.2 213.2 23.5 23.3 38.1 55.5 38.1 91.1v112.7c0.8 9 0 17.9 15.1 17.9C832.7 877 960.4 709.4 960.4 512.1c0-247.5-200.6-447.9-447.9-447.9C265 64.1 64.6 264.5 64.6 512z"></path>
+        </svg>
+        
+
+        
+
+        
+
+        
+
+        
+      </a>
+    
+  </div>
+  
+
+  <div class="colour-bar"></div>
+  
+  
+  <p>© 2021 <a href="https://github.com/miiiku/hugo-theme-kagome">kagome</a>.</p>
+  
+
+  
+
+  <p>
+    Powered by
+    <a href="https://gohugo.io/" target="_blank" rel="noopener noreferrer">Hugo</a>
+    Theme - 
+    <a href="https://github.com/miiiku/hugo-theme-kagome" target="_blank" rel="noopener noreferrer author">kagome</a>
+  </p>
+
+  <p>
+    <a href="javascript:;" id="theme-light">🌞 light</a>
+    <a href="javascript:;" id="theme-dark">🌛 dark</a>
+    <a href="javascript:;" id="theme-auto">🤖️ auto</a>
+  </p>
+</footer>
+
+
+
+
+
+
+
+
+</body>
+
+</html>
