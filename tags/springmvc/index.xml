@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>SpringMVC on 非洲大白脸</title>
+    <link>https://jxsrlsl1234.github.io/tags/springmvc/</link>
+    <description>Recent content in SpringMVC on 非洲大白脸</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <managingEditor>jxsrlsl1234@163.com (jxsrlsl1234)</managingEditor>
+    <webMaster>jxsrlsl1234@163.com (jxsrlsl1234)</webMaster>
+    <copyright>© 2021 &lt;a href=&#34;https://github.com/miiiku/hugo-theme-kagome&#34;&gt;kagome&lt;/a&gt;.</copyright>
+    <lastBuildDate>Thu, 22 Dec 2022 15:50:53 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/tags/springmvc/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>SpringMVC项目中WebApplicationContext是如何构建出来的</title>
+      <link>https://jxsrlsl1234.github.io/blogs/springmvc%E9%A1%B9%E7%9B%AE%E4%B8%ADwebapplicationcontext%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E5%87%BA%E6%9D%A5%E7%9A%84/</link>
+      <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/blogs/springmvc%E9%A1%B9%E7%9B%AE%E4%B8%ADwebapplicationcontext%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E5%87%BA%E6%9D%A5%E7%9A%84/</guid>
+      <description>一、DispatcherServlet/ContextLoaderListener 问：这两者有啥关联呢？ 结论：这两者都会去构建 WebAppl</description>
+    </item>
+    
+  </channel>
+</rss>
