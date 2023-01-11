@@ -11,11 +11,38 @@
     <copyright>© 2021 &lt;a href=&#34;https://github.com/miiiku/hugo-theme-kagome&#34;&gt;kagome&lt;/a&gt;.</copyright>
     <lastBuildDate>Thu, 22 Dec 2022 15:50:53 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>JVM</title>
+      <link>https://jxsrlsl1234.github.io/tags/jvm/</link>
+      <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/tags/jvm/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Sentinel</title>
+      <link>https://jxsrlsl1234.github.io/tags/sentinel/</link>
+      <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/tags/sentinel/</guid>
+      <description></description>
+    </item>
+    
+    <item>
       <title>Spring</title>
       <link>https://jxsrlsl1234.github.io/tags/spring/</link>
       <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
       <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
       <guid>https://jxsrlsl1234.github.io/tags/spring/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>SpringBoot</title>
+      <link>https://jxsrlsl1234.github.io/tags/springboot/</link>
+      <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/tags/springboot/</guid>
       <description></description>
     </item>
     
@@ -29,11 +56,11 @@
     </item>
     
     <item>
-      <title>SpringBoot</title>
-      <link>https://jxsrlsl1234.github.io/tags/springboot/</link>
-      <pubDate>Mon, 05 Dec 2022 16:25:32 +0800</pubDate>
+      <title>日志框架</title>
+      <link>https://jxsrlsl1234.github.io/tags/%E6%97%A5%E5%BF%97%E6%A1%86%E6%9E%B6/</link>
+      <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
       <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
-      <guid>https://jxsrlsl1234.github.io/tags/springboot/</guid>
+      <guid>https://jxsrlsl1234.github.io/tags/%E6%97%A5%E5%BF%97%E6%A1%86%E6%9E%B6/</guid>
       <description></description>
     </item>
     

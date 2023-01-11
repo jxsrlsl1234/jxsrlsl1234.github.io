@@ -11,6 +11,15 @@
     <copyright>© 2021 &lt;a href=&#34;https://github.com/miiiku/hugo-theme-kagome&#34;&gt;kagome&lt;/a&gt;.</copyright>
     <lastBuildDate>Thu, 22 Dec 2022 15:50:53 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/categories/java/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>SpringBoot项目在JVM退出时日志丢失情况分析</title>
+      <link>https://jxsrlsl1234.github.io/blogs/springboot%E9%A1%B9%E7%9B%AE%E5%9C%A8jvm%E9%80%80%E5%87%BA%E6%97%B6%E6%97%A5%E5%BF%97%E4%B8%A2%E5%A4%B1%E6%83%85%E5%86%B5%E5%88%86%E6%9E%90/</link>
+      <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>
+      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
+      <guid>https://jxsrlsl1234.github.io/blogs/springboot%E9%A1%B9%E7%9B%AE%E5%9C%A8jvm%E9%80%80%E5%87%BA%E6%97%B6%E6%97%A5%E5%BF%97%E4%B8%A2%E5%A4%B1%E6%83%85%E5%86%B5%E5%88%86%E6%9E%90/</guid>
+      <description>问题背景 SpringBoot框架在启动时为SpringContext注册了一个ShutdownHook来关闭SpringContext，而J</description>
+    </item>
+    
+    <item>
       <title>SpringMVC项目中WebApplicationContext是如何构建出来的</title>
       <link>https://jxsrlsl1234.github.io/blogs/springmvc%E9%A1%B9%E7%9B%AE%E4%B8%ADwebapplicationcontext%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E5%87%BA%E6%9D%A5%E7%9A%84/</link>
       <pubDate>Thu, 22 Dec 2022 15:50:53 +0800</pubDate>

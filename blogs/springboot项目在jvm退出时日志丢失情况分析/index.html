@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html><head>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+   
+    <meta name="author" content="jxsrlsl1234">
+  
+
+   
+    
+    
+    
+    
+    
+    
+    <meta name="keywords" content="theme,kagome">
+  
+
+  
+
+  <meta name="generator" content="Hugo 0.87.0" />
+  
+  
+  
+  
+  
+  
+  <title>SpringBoot项目在JVM退出时日志丢失情况分析 🌟 非洲大白脸</title>
+
+  <meta property="og:title" content="SpringBoot项目在JVM退出时日志丢失情况分析" />
+<meta property="og:description" content="问题背景 SpringBoot框架在启动时为SpringContext注册了一个ShutdownHook来关闭SpringContext，而J" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jxsrlsl1234.github.io/blogs/springboot%E9%A1%B9%E7%9B%AE%E5%9C%A8jvm%E9%80%80%E5%87%BA%E6%97%B6%E6%97%A5%E5%BF%97%E4%B8%A2%E5%A4%B1%E6%83%85%E5%86%B5%E5%88%86%E6%9E%90/" /><meta property="article:section" content="blogs" />
+<meta property="article:published_time" content="2022-12-22T15:50:53+08:00" />
+<meta property="article:modified_time" content="2022-12-22T15:50:53+08:00" />
+
+
+  <meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="SpringBoot项目在JVM退出时日志丢失情况分析"/>
+<meta name="twitter:description" content="问题背景 SpringBoot框架在启动时为SpringContext注册了一个ShutdownHook来关闭SpringContext，而J"/>
+
+
+  
+  
+  
+  
+  <link rel="stylesheet" href="https://jxsrlsl1234.github.io/assets/css/style.min.699f46622e3574a7f9ecca4c5877067845fe89ffcd9c4335df2dff23ddae215e.css" integrity="sha256-aZ9GYi41dKf57MpMWHcGeEX&#43;if/NnEM13y3/I92uIV4=">
+
+  <script src="https://jxsrlsl1234.github.io/assets/js/main.min.182da266209851bc7c828aa7377f98f914e1e76c8decdd53a6cbe9bffea92cde.js" integrity="sha256-GC2iZiCYUbx8goqnN3&#43;Y&#43;RTh52yN7N1Tpsvpv/6pLN4="></script>
+  
+  </head><body><header class="header-container layout-block layout-padding">
+  <div class="header-inner content-padding-large soft-size--large soft-style--box">
+    <div class="header-logo">
+      <a href="https://jxsrlsl1234.github.io/"><h1>非洲大白脸</h1></a>
+    </div>
+    <nav class="header-nav">
+      <div class="header-nav--btn">
+        <div class="btn-item"></div>
+        <div class="btn-item"></div>
+        <div class="btn-item"></div>
+      </div>
+      <div class="header-nav--list">
+        <div>
+          
+          <a class="list-item soft-size--small soft-style--hover soft-style--active" href="/" title="">HOME</a>
+          
+          <a class="list-item soft-size--small soft-style--hover soft-style--active" href="/blogs" title="">BLOG</a>
+          
+        </div>
+      </div>
+    </nav>
+  </div>
+</header><main id="content">
+    
+
+    <div class="single-container layout-block">
+      <div class="article-info">
+        <div class="article-header layout-padding">
+          <div class="article-cover card-container content-padding-large soft-size--large soft-style--box img">
+
+  <div class="card-cover">
+    
+      <img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/cover1.png" alt="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/cover1.png" />
+    
+  </div>
+
+  <div class="card-text">
+    <h1 class="card-text--title">SpringBoot项目在JVM退出时日志丢失情况分析</h1>
+    
+      <p class="card-text--row">2022-12-22 15:50</p>
+      
+      
+      
+        <ul class="card-text--tag">
+          
+            <li><a href="https://jxsrlsl1234.github.io/categories/java/">Java</a></li></ul>
+      
+
+      
+      
+        <ul class="card-text--tag">
+          
+            <li><a href="https://jxsrlsl1234.github.io/tags/springboot/">SpringBoot</a></li>
+            <li><a href="https://jxsrlsl1234.github.io/tags/jvm/">JVM</a></li>
+            <li><a href="https://jxsrlsl1234.github.io/tags/sentinel/">Sentinel</a></li>
+            <li><a href="https://jxsrlsl1234.github.io/tags/%E6%97%A5%E5%BF%97%E6%A1%86%E6%9E%B6/">日志框架</a></li></ul>
+      
+    
+  </div>
+
+</div>
+        </div>
+
+        <div class="article-content">
+          <div class="markdown-body content-padding-large soft-size--large soft-style--box">
+            <h2 id="问题背景">问题背景</h2>
+<p>SpringBoot框架在启动时为SpringContext注册了一个ShutdownHook来关闭SpringContext，而JUL日志框架也注册了一个ShutdownHook来关闭JUL相关日志内容，且ShutdownHook是并行执行的。
+在SpringBoot接受到TERM信号准备退出时，会执行ShutDownHook的钩子函数，并行执行所有的Shutdown逻辑，具体代码在：
+<strong>java.lang.ApplicationShutdownHooks#runHooks</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/* Iterates over all application hooks creating a new thread for each
+</span><span style="color:#75715e"> * to run in. Hooks are run concurrently and this method waits for
+</span><span style="color:#75715e"> * them to finish.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">runHooks</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+  Collection<span style="color:#f92672">&lt;</span>Thread<span style="color:#f92672">&gt;</span> threads<span style="color:#f92672">;</span>
+  <span style="color:#66d9ef">synchronized</span><span style="color:#f92672">(</span>ApplicationShutdownHooks<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    threads <span style="color:#f92672">=</span> hooks<span style="color:#f92672">.</span><span style="color:#a6e22e">keySet</span><span style="color:#f92672">();</span>
+    hooks <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+  <span style="color:#f92672">}</span>
+
+  <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Thread hook <span style="color:#f92672">:</span> threads<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">//并行执行
+</span><span style="color:#75715e"></span>    hook<span style="color:#f92672">.</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
+  <span style="color:#f92672">}</span>
+  <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Thread hook <span style="color:#f92672">:</span> threads<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+        hook<span style="color:#f92672">.</span><span style="color:#a6e22e">join</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+      <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>InterruptedException ignored<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>同时，SpringBoot本身也有其他的日志系统，比如说Logback，且相关的退出逻辑是靠监听Spring的ContextClosedEvent事件从而退出的。注意SpringBoot中所有的监听器的执行都是同步的。</p>
+<p>因此所有的执行逻辑顺序如下：
+
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/JVMexit.png" alt="" loading="lazy" /></p>
+</p>
+<p>我们只针对控制台打日志来分析。 <br>
+问题关键在红色部分按理第一块的监听器打出来的日志是可以看到的（因为此时LoggingApplicationListener还没有开始清理日志系统），但是测试是发现有时候看不到。</p>
+<h2 id="原因分析">原因分析</h2>
+<h3 id="21-根本原因输出流被提前关闭">2.1 根本原因，输出流被提前关闭</h3>
+<p>日志控制台输出采用的是ConsoleAppender,这个是个日志输出是同步的。<br>
+log.info(xxx)最终往ConsoleAppender输出，调用的是这个： <br>
+<strong>ch.qos.logback.core.joran.spi.ConsoleTarget（是logback的）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">enum</span> ConsoleTarget <span style="color:#f92672">{</span>
+  SystemOut<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;System.out&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">new</span> OutputStream<span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">write</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> b<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+      System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">write</span><span style="color:#f92672">(</span>b<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">write</span><span style="color:#f92672">(</span><span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> b<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// 是System类中的一个static final变量out[PrintStream类型]
+</span><span style="color:#75715e"></span>      System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">write</span><span style="color:#f92672">(</span>b<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">write</span><span style="color:#f92672">(</span><span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> b<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> off<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> len<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+      System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">write</span><span style="color:#f92672">(</span>b<span style="color:#f92672">,</span> off<span style="color:#f92672">,</span> len<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">flush</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+      System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">flush</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}),</span>
+</code></pre></div><p><strong>java.io.PrintStream#write(int)</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">write</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> b<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">//要确保out这个OutStream不为空
+</span><span style="color:#75715e"></span>      ensureOpen<span style="color:#f92672">();</span>
+      out<span style="color:#f92672">.</span><span style="color:#a6e22e">write</span><span style="color:#f92672">(</span>b<span style="color:#f92672">);</span>
+      <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>b <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\n&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> autoFlush<span style="color:#f92672">)</span>
+        out<span style="color:#f92672">.</span><span style="color:#a6e22e">flush</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}</span>
+  <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>InterruptedIOException x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">currentThread</span><span style="color:#f92672">().</span><span style="color:#a6e22e">interrupt</span><span style="color:#f92672">();</span>
+  <span style="color:#f92672">}</span>
+  <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>IOException x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">//异常被吞了
+</span><span style="color:#75715e"></span>    trouble <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+
+<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">ensureOpen</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+  <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>out <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span>
+    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IOException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Stream closed&#34;</span><span style="color:#f92672">);</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>但是对未输出日志的log debug发现ensureOpen方法里执行时out为null，也就是说明这个输出流被其他方式关闭了。
+这个out不是指System.out这个PrintStream，而是System.out这个PrintStream内部保存的一个OutputStream，从FilterOutputStream里继承下来的。  <br>
+而这个out关闭的方法为以下方式：  <br>
+<strong>java.io.PrintStream#close</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">close</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+  <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span> closing<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      closing <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+      <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+        textOut<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+        out<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+      <span style="color:#f92672">}</span>
+      <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>IOException x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        trouble <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+      <span style="color:#f92672">}</span>
+      textOut <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+      charOut <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+      <span style="color:#75715e">// out被置空了
+</span><span style="color:#75715e"></span>      out <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>因此我们只需要找到是什么逻辑提前调用了这段方法即可。</p>
+<h3 id="22-谁提前关闭了输出流">2.2 谁提前关闭了输出流？</h3>
+<p>先说结论：通过debug发现，是jdk在ShudownHook阶段清理JUL日志相关内容时直接关闭了输出流，但是<strong>不是JUL的问题，是Sentinel的问题</strong>。</p>
+<hr>
+<p>这里先说个概念： <br>
+JUL和Sentinel都定义了ConsoleHandler，可以理解是将日志记录进行处理的一个处理器，且都继承了JUL提供的 java.util.logging.Handler 类，。但是这两个handler的close操作是完全不一样的。</p>
+<p>JUL，仅仅是flush操作</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#a6e22e">@Override</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">close</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+  flush<span style="color:#f92672">();</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>Sentinel，太可恶了，把stdout及stderr输出流给关闭了。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#a6e22e">@Override</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">close</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> SecurityException <span style="color:#f92672">{</span>
+  stdoutHandler<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+  stderrHandler<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>值得注意的是：如果close操作把输出流关闭了，那么控制台再也无法打印出日志，同时，也不会报错，因为System.out这个PrintStream默认会把异常给吞了。</p>
+<hr>
+<p>接下来开始分析，是谁在何时把这个输出流给关闭了，我们按照执行流程来看。</p>
+<h4 id="221-jul执行shutdownhook清理操作">2.2.1 JUL执行ShutdownHook清理操作</h4>
+<p><strong>java.util.logging.LogManager.Cleaner</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">//这个就是shutdownHook执行的内容
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Cleaner</span> <span style="color:#66d9ef">extends</span> Thread <span style="color:#f92672">{</span>
+
+  <span style="color:#66d9ef">private</span> <span style="color:#a6e22e">Cleaner</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">super</span><span style="color:#f92672">(</span><span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;Logging-Cleaner&#34;</span><span style="color:#f92672">,</span> 0<span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
+    <span style="color:#75715e">/* Set context class loader to null in order to avoid
+</span><span style="color:#75715e">             * keeping a strong reference to an application classloader.
+</span><span style="color:#75715e">             */</span>
+    <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">setContextClassLoader</span><span style="color:#f92672">(</span><span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>
+  <span style="color:#f92672">}</span>
+
+  <span style="color:#a6e22e">@Override</span>
+  <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">run</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">// This is to ensure the LogManager.&lt;clinit&gt; is completed
+</span><span style="color:#75715e"></span>    <span style="color:#75715e">// before synchronized block. Otherwise deadlocks are possible.
+</span><span style="color:#75715e"></span>    LogManager mgr <span style="color:#f92672">=</span> manager<span style="color:#f92672">;</span>
+
+    <span style="color:#75715e">// set globalHandlersState to STATE_SHUTDOWN atomically so that
+</span><span style="color:#75715e"></span>    <span style="color:#75715e">// no attempts are made to (re)initialize the handlers or (re)read
+</span><span style="color:#75715e"></span>    <span style="color:#75715e">// the configuration again. This is terminal state.
+</span><span style="color:#75715e"></span>    configurationLock<span style="color:#f92672">.</span><span style="color:#a6e22e">lock</span><span style="color:#f92672">();</span>
+    globalHandlersState <span style="color:#f92672">=</span> STATE_SHUTDOWN<span style="color:#f92672">;</span>
+    configurationLock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
+
+    <span style="color:#75715e">// Do a reset to close all active handlers.
+</span><span style="color:#75715e"></span>    <span style="color:#75715e">// 这里是执行清理逻辑
+</span><span style="color:#75715e"></span>    reset<span style="color:#f92672">();</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><h4 id="222-触发对jul的loggercontext的清理">2.2.2 触发对JUL的LoggerContext的清理</h4>
+<p><strong>java.util.logging.LogManager#reset</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">reset</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> SecurityException <span style="color:#f92672">{</span>
+ 	<span style="color:#f92672">...</span>
+  <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+		<span style="color:#f92672">...</span>
+    <span style="color:#75715e">// contexts()有两个，一个是SystemLoggerContext，一个是UserLoggerContext
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>LoggerContext cx <span style="color:#f92672">:</span> contexts<span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// 清理逻辑在这
+</span><span style="color:#75715e"></span>      resetLoggerContext<span style="color:#f92672">(</span>cx<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    persistent<span style="color:#f92672">.</span><span style="color:#a6e22e">clear</span><span style="color:#f92672">();</span>
+  <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+    configurationLock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>是在执行UserLoggerContext的rest时被清理的，SystemLoggerContext保存的是和jdk本身相关的一些logger，
+UserLoggerContext保存了和业务配置相关的一些logger（<!-- raw HTML omitted -->比如业务直接使用JUL框架getLogger，或者logbcak配置的，为啥logback配置的内容会在jdk里存，这个后面再说<!-- raw HTML omitted -->）。</p>
+<h4 id="223-重置每一个loggercontext中logger">2.2.3 重置每一个LoggerContext中Logger</h4>
+<p><strong>java.util.logging.LogManager#resetLoggerContext</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">//这个方法是说会获取这个loggerContext里的所有Logger，然后只要找到就会去reset
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">resetLoggerContext</span><span style="color:#f92672">(</span>LoggerContext cx<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  <span style="color:#75715e">//获取userLoggerContext里的所有loggerName，然后遍历开始
+</span><span style="color:#75715e"></span>  Enumeration<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> enum_ <span style="color:#f92672">=</span> cx<span style="color:#f92672">.</span><span style="color:#a6e22e">getLoggerNames</span><span style="color:#f92672">();</span>
+  <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>enum_<span style="color:#f92672">.</span><span style="color:#a6e22e">hasMoreElements</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+    String name <span style="color:#f92672">=</span> enum_<span style="color:#f92672">.</span><span style="color:#a6e22e">nextElement</span><span style="color:#f92672">();</span>
+    Logger logger <span style="color:#f92672">=</span> cx<span style="color:#f92672">.</span><span style="color:#a6e22e">findLogger</span><span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
+    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>logger <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">//这里是关键
+</span><span style="color:#75715e"></span>      resetLogger<span style="color:#f92672">(</span>logger<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>上述获取到的LoggerName如下：
+
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/userLoggerContext.png" alt="" loading="lazy" /></p>
+</p>
+<h4 id="224-关闭logger对应的所有的handler">2.2.4 关闭Logger对应的所有的Handler</h4>
+<p><strong>java.util.logging.LogManager</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">// Private method to reset an individual target logger.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">resetLogger</span><span style="color:#f92672">(</span>Logger logger<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  <span style="color:#75715e">// Close all the Logger handlers.
+</span><span style="color:#75715e"></span>  <span style="color:#75715e">// 这里是关键，会关闭logger对应的所有Handler，其中就包括cspSentinelRecording Logger的ConsoleHandler
+</span><span style="color:#75715e"></span>  closeHandlers<span style="color:#f92672">(</span>logger<span style="color:#f92672">);</span>
+
+  <span style="color:#75715e">// Reset Logger level
+</span><span style="color:#75715e"></span>  String name <span style="color:#f92672">=</span> logger<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">();</span>
+  <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>name <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">&amp;&amp;</span> name<span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">// This is the root logger.
+</span><span style="color:#75715e"></span>    logger<span style="color:#f92672">.</span><span style="color:#a6e22e">setLevel</span><span style="color:#f92672">(</span>defaultLevel<span style="color:#f92672">);</span>
+  <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+    logger<span style="color:#f92672">.</span><span style="color:#a6e22e">setLevel</span><span style="color:#f92672">(</span><span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+
+<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">closeHandlers</span><span style="color:#f92672">(</span>Logger logger<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  Handler<span style="color:#f92672">[]</span> targets <span style="color:#f92672">=</span> logger<span style="color:#f92672">.</span><span style="color:#a6e22e">getHandlers</span><span style="color:#f92672">();</span>
+  <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Handler h <span style="color:#f92672">:</span> targets<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    logger<span style="color:#f92672">.</span><span style="color:#a6e22e">removeHandler</span><span style="color:#f92672">(</span>h<span style="color:#f92672">);</span>
+    <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// 比如是cspSentinelRecording Logger的ConsoleHandler
+</span><span style="color:#75715e"></span>      h<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// Problems closing a handler?  Keep going...
+</span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Error e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">// ignore Errors while shutting down
+</span><span style="color:#75715e"></span>      <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>globalHandlersState <span style="color:#f92672">!=</span> STATE_SHUTDOWN<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">throw</span> e<span style="color:#f92672">;</span>
+      <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><h4 id="225-罪魁祸首sentinel的consolehandler的close操作关闭了输出流">2.2.5 罪魁祸首：sentinel的ConsoleHandler的close操作关闭了输出流</h4>
+<p><strong>com.alibaba.csp.sentinel.log.ConsoleHandler#close</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#a6e22e">@Override</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">close</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> SecurityException <span style="color:#f92672">{</span>
+  stdoutHandler<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+  stderrHandler<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>上面说到了cspSentinelRecordLog，这个loggerName对饮的Logger获取到的Handler就有ConsoleHandler，其内部的output就是System.out
+
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/Sentinel_ConsoleHandler.png" alt="" loading="lazy" /></p>
+
+然后System.out这个PrintStream内的一个out输出流就在stdoutHandler.close()的内部逻辑中被关了。随后，那些调用logger.xxx打印日志的内容将在控制台全部不可见。
+因为这个是控制台输出，且位于进程退出时，因此没有人会发现这个问题。</p>
+<h2 id="三其他问题及分析">三、其他问题及分析</h2>
+<h3 id="system类中的out变量默认赋值为null且是static-final的为何后续调用非静态方法如systemoutprintxxx不会报npe">System类中的out变量默认赋值为null，且是static final的，为何后续调用非静态方法如System.out.print(&ldquo;xxx&rdquo;)不会报NPE？</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">System</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">/* Register the natives via the static initializer.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * VM will invoke the initializeSystemClass method to complete
+</span><span style="color:#75715e">     * the initialization for this class separated from clinit.
+</span><span style="color:#75715e">     * Note that to use properties set by the VM, see the constraints
+</span><span style="color:#75715e">     * described in the initializeSystemClass method.
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">registerNatives</span><span style="color:#f92672">();</span>
+    <span style="color:#66d9ef">static</span> <span style="color:#f92672">{</span>
+        registerNatives<span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/** Don&#39;t let anyone instantiate this class */</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#a6e22e">System</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * The &#34;standard&#34; output stream. This stream is already
+</span><span style="color:#75715e">     * open and ready to accept output data. Typically this stream
+</span><span style="color:#75715e">     * corresponds to display output or another output destination
+</span><span style="color:#75715e">     * specified by the host environment or user.
+</span><span style="color:#75715e">     * &lt;p&gt;
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> PrintStream out <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</code></pre></div><p>关键是上面的静态代码块调用了静态方法registerNatives()；这个是native的，真实执行为c++的动态链接库代码，也就是说class在加载时这段代码应该会先行执行静态方法registerNatives，
+这里边一定有对out变量重新赋值的操作。另外，out这个因为是static final的，后续也不可能再变为null了。如果再继续细究，System.out变量是一个PrintStream，
+其内部也保存了一个out（也是个OutPutStream），这个out如果为null后，也不会有NPE，原因是判断out为null后抛一个IOException，但IOException会被吞，因此也不会有NPE。<br>
+<strong>java.io.PrintStream</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">ensureOpen</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+  <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>out <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span>
+      <span style="color:#75715e">//抛异常
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IOException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Stream closed&#34;</span><span style="color:#f92672">);</span>
+<span style="color:#f92672">}</span>
+
+<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">write</span><span style="color:#f92672">(</span><span style="color:#66d9ef">char</span> buf<span style="color:#f92672">[])</span> <span style="color:#f92672">{</span>
+  <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      <span style="color:#75715e">//这里调用
+</span><span style="color:#75715e"></span>      ensureOpen<span style="color:#f92672">();</span>
+      textOut<span style="color:#f92672">.</span><span style="color:#a6e22e">write</span><span style="color:#f92672">(</span>buf<span style="color:#f92672">);</span>
+      textOut<span style="color:#f92672">.</span><span style="color:#a6e22e">flushBuffer</span><span style="color:#f92672">();</span>
+      charOut<span style="color:#f92672">.</span><span style="color:#a6e22e">flushBuffer</span><span style="color:#f92672">();</span>
+      <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>autoFlush<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> buf<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span>
+          <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>buf<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;\n&#39;</span><span style="color:#f92672">)</span>
+            out<span style="color:#f92672">.</span><span style="color:#a6e22e">flush</span><span style="color:#f92672">();</span>
+      <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+  <span style="color:#f92672">}</span>
+  <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>InterruptedIOException x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">currentThread</span><span style="color:#f92672">().</span><span style="color:#a6e22e">interrupt</span><span style="color:#f92672">();</span>
+  <span style="color:#f92672">}</span>
+  <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>IOException x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  	<span style="color:#75715e">// catch了异常吞了
+</span><span style="color:#75715e"></span>    trouble <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+  <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><h3 id="32-jul和logback有没有关系">3.2 JUL和Logback有没有关系？</h3>
+<p>从我们认知当中，这是两个日志框架，一个是jdk自己的，一个是基于slf4j api的经典实现。这两个日志框架一起使用需要jul-to-slf4j进行桥接。
+
+  <p><img src="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/log_framework.png" alt="" loading="lazy" /></p>
+
+但实际上从源码发现，logback源码中有和JUL交互的逻辑。如下：  <br>
+<strong>ch.qos.logback.classic.jul.LevelChangePropagator</strong>  <br>
+这个类是针对Logger的Level被改变后的一个LoggerContextListener。这个Listener实现了这样一个方法。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">onLevelChange</span><span style="color:#f92672">(</span>Logger logger<span style="color:#f92672">,</span> Level level<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  propagate<span style="color:#f92672">(</span>logger<span style="color:#f92672">,</span> level<span style="color:#f92672">);</span>
+<span style="color:#f92672">}</span>
+<span style="color:#75715e">// 仔细看看这段代码，将logback的Logger转为JULLogger后保存在LogManager里了
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">propagate</span><span style="color:#f92672">(</span>Logger logger<span style="color:#f92672">,</span> Level level<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  addInfo<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Propagating &#34;</span> <span style="color:#f92672">+</span> level <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; level on &#34;</span> <span style="color:#f92672">+</span> logger <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; onto the JUL framework&#34;</span><span style="color:#f92672">);</span>
+  java<span style="color:#f92672">.</span><span style="color:#a6e22e">util</span><span style="color:#f92672">.</span><span style="color:#a6e22e">logging</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Logger</span> julLogger <span style="color:#f92672">=</span> JULHelper<span style="color:#f92672">.</span><span style="color:#a6e22e">asJULLogger</span><span style="color:#f92672">(</span>logger<span style="color:#f92672">);</span>
+  <span style="color:#75715e">// prevent garbage collection of jul loggers whose level we set
+</span><span style="color:#75715e"></span>  <span style="color:#75715e">// see also http://jira.qos.ch/browse/LBCLASSIC-256
+</span><span style="color:#75715e"></span>  <span style="color:#75715e">// 注释说怕被垃圾回收清理了
+</span><span style="color:#75715e"></span>  julLoggerSet<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>julLogger<span style="color:#f92672">);</span>
+  java<span style="color:#f92672">.</span><span style="color:#a6e22e">util</span><span style="color:#f92672">.</span><span style="color:#a6e22e">logging</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Level</span> julLevel <span style="color:#f92672">=</span> JULHelper<span style="color:#f92672">.</span><span style="color:#a6e22e">asJULLevel</span><span style="color:#f92672">(</span>level<span style="color:#f92672">);</span>
+  julLogger<span style="color:#f92672">.</span><span style="color:#a6e22e">setLevel</span><span style="color:#f92672">(</span>julLevel<span style="color:#f92672">);</span>
+<span style="color:#f92672">}</span>
+<span style="color:#75715e">// logback的Logger转为JULLogger
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">static</span> <span style="color:#66d9ef">public</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">util</span><span style="color:#f92672">.</span><span style="color:#a6e22e">logging</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Logger</span> <span style="color:#a6e22e">asJULLogger</span><span style="color:#f92672">(</span>Logger logger<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  <span style="color:#66d9ef">return</span> asJULLogger<span style="color:#f92672">(</span>logger<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">());</span>
+<span style="color:#f92672">}</span>
+<span style="color:#75715e">// logback的Logger转为JULLogger
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">static</span> <span style="color:#66d9ef">public</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">util</span><span style="color:#f92672">.</span><span style="color:#a6e22e">logging</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Logger</span> <span style="color:#a6e22e">asJULLogger</span><span style="color:#f92672">(</span>String loggerName<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+  <span style="color:#75715e">//先通过logback的Logger找到LoggerName
+</span><span style="color:#75715e"></span>  String julLoggerName <span style="color:#f92672">=</span> asJULLoggerName<span style="color:#f92672">(</span>loggerName<span style="color:#f92672">);</span>
+  <span style="color:#75715e">// 再通过LoggerName去JUL中找对应的Logger
+</span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">util</span><span style="color:#f92672">.</span><span style="color:#a6e22e">logging</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Logger</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getLogger</span><span style="color:#f92672">(</span>julLoggerName<span style="color:#f92672">);</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>以上逻辑最重要的在 <strong>java.util.logging.Logger.getLogger(julLoggerName)</strong>  <br>
+这一段不就是使用JUL获取Logger的行为吗？是的。但是这段代码逻辑很多的，关键在于如果没获取到，会自动创建Logger并保存到 LoggerManager 的UserLoggerContext里（代码不贴了）。 <br>
+所以说，其实Logback还是和JUL进行了一些简单交互的，至于为什么要这样，可以参考官网：<a href="https://logback.qos.ch/manual/configuration.html#LevelChangePropagator" target="_blank" rel="noopener">LevelChangePropagator</a></p>
+
+          </div>
+        </div>
+                 
+      
+  
+  
+
+  
+<div class="disqus-box layout-margin content-padding-large soft-size--large soft-style--box">
+    <div id="disqus_thread"></div>
+    <a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "personalblog-lsl" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+  <div class="article-paging">
+    
+    
+      <section class="post-paging--item card-container content-padding-primary soft-size--primary soft-style--box">
+  <div class="card-cover" background-image-lazy data-img="https://raw.githubusercontent.com/jxsrlsl1234/public-images/master/blogs/cover1.png"></div>
+  <div class="card-text">
+    <a href="/blogs/springmvc%E9%A1%B9%E7%9B%AE%E4%B8%ADwebapplicationcontext%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E5%87%BA%E6%9D%A5%E7%9A%84/"><h4 class="card-text--title text-ellipsis">SpringMVC项目中WebApplicationContext是如何构建出来的</h4></a>
+    <p class="card-text--row">2022-12-22 15:50</p>
+  </div>
+</section>
+    
+  </div>
+</div>
+  <aside class="widget-info">
+    
+<section class="aside-widget widget-author content-padding-large soft-size--large soft-style--box">
+  <div class="widget-body">
+    <div class="author-box avatar">
+      
+      <img class="author-avatar soft-size--round soft-style--box" src="https://gimg2.baidu.com/image_search/src=http%3A%2F%2Flmg.jj20.com%2Fup%2Fallimg%2Ftx26%2F01080117025728.jpg&amp;refer=http%3A%2F%2Flmg.jj20.com&amp;app=2002&amp;size=f9999,10000&amp;q=a80&amp;n=0&amp;g=0n&amp;fmt=auto?sec=1672826145&amp;t=a153646188cf215f2f529313c26f70de" alt="jxsrlsl1234">
+      
+      <h2 class="author-name text-ellipsis">jxsrlsl1234</h2>
+      
+      <p class="author-desc text-ellipsis">一个努力奋斗的社畜</p>
+      
+    </div>
+  </div>
+</section>
+
+
+    
+
+
+    
+
+
+
+
+
+
+<section class="aside-widget widget-articles content-padding-large soft-size--large soft-style--box">
+  <h2 class="widget-header">
+    <div class="title">
+      <span>Related Posts</span>
+    </div>
+  </h2>
+  <div class="widget-body">
+    <ul class="post-list">
+      
+      
+        <li class="post-item"><a href="/blogs/springmvc%E9%A1%B9%E7%9B%AE%E4%B8%ADwebapplicationcontext%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E5%87%BA%E6%9D%A5%E7%9A%84/">SpringMVC项目中WebApplicationContext是如何构建出来的</a></li>
+      
+        <li class="post-item"><a href="/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/">自定义Tomcat优雅退出逻辑</a></li>
+      
+    </ul>
+  </div>
+</section>
+
+
+    
+
+
+
+
+<section class="aside-widget widget-categories content-padding-large soft-size--large soft-style--box">
+  <h2 class="widget-header">
+    <div class="title">
+      <span>Categories</span>
+    </div>
+  </h2>
+  <div class="widget-body">
+    <ul class="categories-list">
+      
+        <li>
+          <a href="https://jxsrlsl1234.github.io/categories/java/">Java</a>
+          <span>3</span>
+        </li>
+      
+    </ul>
+  </div>
+
+  
+</section>
+
+
+    
+
+
+
+
+<section class="aside-widget widget-tags content-padding-large soft-size--large soft-style--box">
+  <h2 class="widget-header">
+    <div class="title">
+      <span>Tags</span>
+    </div>
+  </h2>
+  <div class="widget-body">
+    <div class="tags-list">
+      
+        <a href="https://jxsrlsl1234.github.io/tags/springboot/" data-count="2" class="soft-size--small soft-style--hover soft-style--active">SpringBoot</a>
+      
+        <a href="https://jxsrlsl1234.github.io/tags/jvm/" data-count="1" class="soft-size--small soft-style--hover soft-style--active">JVM</a>
+      
+        <a href="https://jxsrlsl1234.github.io/tags/sentinel/" data-count="1" class="soft-size--small soft-style--hover soft-style--active">Sentinel</a>
+      
+        <a href="https://jxsrlsl1234.github.io/tags/spring/" data-count="1" class="soft-size--small soft-style--hover soft-style--active">Spring</a>
+      
+        <a href="https://jxsrlsl1234.github.io/tags/springmvc/" data-count="1" class="soft-size--small soft-style--hover soft-style--active">SpringMVC</a>
+      
+        <a href="https://jxsrlsl1234.github.io/tags/tomcat/" data-count="1" class="soft-size--small soft-style--hover soft-style--active">Tomcat</a>
+      
+        <a href="https://jxsrlsl1234.github.io/tags/%E6%97%A5%E5%BF%97%E6%A1%86%E6%9E%B6/" data-count="1" class="soft-size--small soft-style--hover soft-style--active">日志框架</a>
+      
+    </div>
+  </div>
+
+  
+</section>
+
+  </aside>
+</div>
+  </main><footer class="footer-container layout-block">
+  
+  <div class="social-icons">
+    
+      <a class="soft-size--primary soft-style--box" href="https://github.com/jxsrlsl1234" target="_blank" rel="noopener noreferrer">
+          
+        <svg class="icon icon-github" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+          <path d="M64.6 512c0 195.6 125.4 361.9 300.1 422.9 23.5 5.9 19.9-10.8 19.9-22.2v-77.6c-135.8 15.9-141.3-74-150.5-89-18.5-31.5-61.9-39.5-49-54.5 31-15.9 62.5 4 98.9 58 26.4 39.1 77.9 32.5 104.1 26 5.7-23.5 17.9-44.5 34.7-60.9-140.7-25.2-199.4-111.1-199.4-213.3 0-49.5 16.4-95.1 48.4-131.8-20.4-60.6 1.9-112.4 4.9-120.1 58.2-5.2 118.5 41.6 123.3 45.3 33.1-8.9 70.8-13.7 112.9-13.7 42.4 0 80.3 4.9 113.5 13.9 11.3-8.6 67.3-48.8 121.4-43.9 2.9 7.7 24.7 58.3 5.5 118.1 32.5 36.8 49 82.8 49 132.4 0 102.3-59 188.3-200.2 213.2 23.5 23.3 38.1 55.5 38.1 91.1v112.7c0.8 9 0 17.9 15.1 17.9C832.7 877 960.4 709.4 960.4 512.1c0-247.5-200.6-447.9-447.9-447.9C265 64.1 64.6 264.5 64.6 512z"></path>
+        </svg>
+        
+
+        
+
+        
+
+        
+
+        
+      </a>
+    
+  </div>
+  
+
+  <div class="colour-bar"></div>
+  
+  
+  <p>© 2021 <a href="https://github.com/miiiku/hugo-theme-kagome">kagome</a>.</p>
+  
+
+  
+
+  <p>
+    Powered by
+    <a href="https://gohugo.io/" target="_blank" rel="noopener noreferrer">Hugo</a>
+    Theme - 
+    <a href="https://github.com/miiiku/hugo-theme-kagome" target="_blank" rel="noopener noreferrer author">kagome</a>
+  </p>
+
+  <p>
+    <a href="javascript:;" id="theme-light">🌞 light</a>
+    <a href="javascript:;" id="theme-dark">🌛 dark</a>
+    <a href="javascript:;" id="theme-auto">🤖️ auto</a>
+  </p>
+</footer>
+
+
+
+
+
+
+
+
+</body>
+
+</html>

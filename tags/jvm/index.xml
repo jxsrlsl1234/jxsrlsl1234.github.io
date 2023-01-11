@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>SpringBoot on 非洲大白脸</title>
-    <link>https://jxsrlsl1234.github.io/tags/springboot/</link>
-    <description>Recent content in SpringBoot on 非洲大白脸</description>
+    <title>JVM on 非洲大白脸</title>
+    <link>https://jxsrlsl1234.github.io/tags/jvm/</link>
+    <description>Recent content in JVM on 非洲大白脸</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <managingEditor>jxsrlsl1234@163.com (jxsrlsl1234)</managingEditor>
     <webMaster>jxsrlsl1234@163.com (jxsrlsl1234)</webMaster>
     <copyright>© 2021 &lt;a href=&#34;https://github.com/miiiku/hugo-theme-kagome&#34;&gt;kagome&lt;/a&gt;.</copyright>
-    <lastBuildDate>Thu, 22 Dec 2022 15:50:53 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/tags/springboot/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 22 Dec 2022 15:50:53 +0800</lastBuildDate><atom:link href="https://jxsrlsl1234.github.io/tags/jvm/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>SpringBoot项目在JVM退出时日志丢失情况分析</title>
       <link>https://jxsrlsl1234.github.io/blogs/springboot%E9%A1%B9%E7%9B%AE%E5%9C%A8jvm%E9%80%80%E5%87%BA%E6%97%B6%E6%97%A5%E5%BF%97%E4%B8%A2%E5%A4%B1%E6%83%85%E5%86%B5%E5%88%86%E6%9E%90/</link>
@@ -17,15 +17,6 @@
       <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
       <guid>https://jxsrlsl1234.github.io/blogs/springboot%E9%A1%B9%E7%9B%AE%E5%9C%A8jvm%E9%80%80%E5%87%BA%E6%97%B6%E6%97%A5%E5%BF%97%E4%B8%A2%E5%A4%B1%E6%83%85%E5%86%B5%E5%88%86%E6%9E%90/</guid>
       <description>问题背景 SpringBoot框架在启动时为SpringContext注册了一个ShutdownHook来关闭SpringContext，而J</description>
-    </item>
-    
-    <item>
-      <title>自定义Tomcat优雅退出逻辑</title>
-      <link>https://jxsrlsl1234.github.io/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</link>
-      <pubDate>Mon, 05 Dec 2022 16:25:32 +0800</pubDate>
-      <author>jxsrlsl1234@163.com (jxsrlsl1234)</author>
-      <guid>https://jxsrlsl1234.github.io/blogs/%E8%87%AA%E5%AE%9A%E4%B9%89tomcat%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91/</guid>
-      <description>背景 SpringBoot早期版本是不支持优雅退出的，即JVM准备退出时，ShutdownHook钩子函数执行Spring context退出逻</description>
     </item>
     
   </channel>
